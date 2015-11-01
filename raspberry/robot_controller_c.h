@@ -1,4 +1,4 @@
-#import "../rover/src/rover.h" // Data structures and configuration data shared with Arduino controller
+#include "../arduino/rover.h" // Data structures and configuration data shared with Arduino controller
 #include <stddef.h>
 
 #ifndef robot_controller_c

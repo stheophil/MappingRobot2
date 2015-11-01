@@ -167,8 +167,8 @@ void I2C_Init()
 void Gyro_Init()
 {
     gyro.init();
-    gyro.writeReg(L3G_CTRL_REG4, 0x20); // 2000 dps full scale
-    gyro.writeReg(L3G_CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
+    gyro.writeReg(L3G::CTRL_REG4, 0x20); // 2000 dps full scale
+    gyro.writeReg(L3G::CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
 }
 
 void Read_Gyro()

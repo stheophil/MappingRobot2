@@ -7,7 +7,7 @@
 //
 
 #include "occupancy_grid.h"
-#import "../rover/src/rover.h" // Data structures and configuration data shared with Arduino controller
+#import "../arduino/rover.h" // Data structures and configuration data shared with Arduino controller
 
 #include <assert.h>
 #include <cstdlib>

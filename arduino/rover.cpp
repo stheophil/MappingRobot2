@@ -3,8 +3,6 @@
 #include "ahrs.h"
 
 #include "SPI.h"
-#include "boards.h"
-#include "RBL_nRF8001.h"
 #include "PID_v1.h"
 
 // #define PID_TEST

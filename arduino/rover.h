@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <assert.h>
+#include <stdlib.h>
 
 typedef short ECommand; // force enum to be 2 bytes for Swift - AVR GCC interop
 const short ecmdSTOP = 0x0;
