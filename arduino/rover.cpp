@@ -139,16 +139,6 @@ void setup()
     Serial.begin(57600);
     delay(3000);  //3 seconds delay for enabling to see the start up comments on the serial board
     
-    // BLE setup
-
-    ble_set_name("rcontrol2");
-    ble_begin();
-    
-    Serial.print("sizeof(SRobotCommand) = ");
-    Serial.println(sizeof(SRobotCommand));
-    Serial.print("sizeof(SSensorData) = ");
-    Serial.println(sizeof(SSensorData));
-    
     // Port setup
     pinMode(RELAY_PIN, OUTPUT);
     digitalWrite(RELAY_PIN, HIGH);
@@ -166,18 +156,17 @@ void setup()
     
     // AHRS
     setupAHRS();
-    
-    Serial.println("BLE Arduino RobotController");
+    Serial.print(g_chHandshake);
 }
 
 void OnConnection() {
-    Serial.println("Connected");
+    // Serial.println("Connected");
     // Active motor controller
     digitalWrite(RELAY_PIN, LOW);
 }
 
 void OnDisconnection() {
-    Serial.println("Disconnected");
+    // Serial.println("Disconnected");
     // Deactivate motor controller
     digitalWrite(RELAY_PIN, HIGH);
 }
@@ -216,13 +205,13 @@ void HandleCommand(SRobotCommand const& cmd) {
 
                 if(ecmdTURN360==cmd.m_cmd) {
                     g_cmdLastCommand.arg.turn.m_nYawTarget = g_nYaw;
-                    Serial.println("Turn 360");
+                    // Serial.println("Turn 360");
                 } else {
-                    Serial.print("Turn ");
-                    Serial.print(bTurnLeft ? "left " : "right ");
-                    Serial.print(g_nYaw);
-                    Serial.print(" -> ");
-                    Serial.println(cmd.arg.turn.m_nYawTarget);
+                    // Serial.print("Turn ");
+                    // Serial.print(bTurnLeft ? "left " : "right ");
+                    // Serial.print(g_nYaw);
+                    // Serial.print(" -> ");
+                    // Serial.println(cmd.arg.turn.m_nYawTarget);
                 }
             }
             
@@ -232,7 +221,7 @@ void HandleCommand(SRobotCommand const& cmd) {
                 bReverse = bReverse || (nSpeed < 0 != g_amotors[i].m_bReverse);
             }
             if(bReverse) { // stop all motors and reset PID
-                Serial.println("STOP Motors");
+                // Serial.println("STOP Motors");
                 for(int i=0; i<countof(g_amotors); ++i) {
                     g_amotors[i].Stop(g_apid[i]);
                 }
@@ -292,7 +281,7 @@ void SendSensorData() {
         g_amotors[3].Pop(),
         g_cmdLastCommand.m_cmd
     };
-    ble_write_bytes((byte*)&data, sizeof(data));
+    Serial.write((byte*)&data, sizeof(data));
 }
 
 #if defined(PID_TEST)
@@ -309,17 +298,7 @@ static const unsigned long c_nTIMETOSTOP = 200; // ms
 void loop()
 {
     updateAHRS(); // ~ 4 ms, runs at 50 Hz
-    
-    if(ble_connected()!=g_bConnected) {
-        g_bConnected=ble_connected();
-        if(g_bConnected) {
-            OnConnection();
-        } else {
-            g_cmdLastCommand = c_rcmdStop;
-            OnDisconnection();
-        }
-    }
-    
+        
     if(g_bConnected) {
         if(ecmdTURN360==g_cmdLastCommand.m_cmd || ecmdTURN==g_cmdLastCommand.m_cmd) {
             const int nYawTolerance = 17; // ~ pi/180 * 1000 ie one degree
@@ -343,12 +322,12 @@ void loop()
                 }
             }
             
-        } else if(ble_available()) {
+        } else if(0<Serial.available()) {
             SRobotCommand cmd;
             char* pcmd = (char*)&cmd;
             char* pcmdEnd = pcmd+sizeof(SRobotCommand);
-            for(; pcmd<pcmdEnd && ble_available(); ++pcmd) {
-                *pcmd = ble_read();
+            for(; pcmd<pcmdEnd && 0<Serial.available(); ++pcmd) {
+                *pcmd = Serial.read();
             }
             if(pcmd==pcmdEnd) {
                 HandleCommand(cmd);
@@ -364,8 +343,11 @@ void loop()
             g_amotors[i].ComputePID(g_apid[i]); // effective sample time ~ 130 ms
         }
         SendSensorData(); // ~ 40 ms
+    } else {
+        if(Serial.available() && Serial.read()==g_chHandshake) {
+            g_bConnected = true;
+            OnConnection();
+        }
     }
-    
-    ble_do_events();
 }
 #endif

@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <stdlib.h>
 
+const char g_chHandshake = 'X';
+
 typedef short ECommand; // force enum to be 2 bytes for Swift - AVR GCC interop
 const short ecmdSTOP = 0x0;
 const short ecmdMOVE = 1 << 1;

@@ -8,6 +8,7 @@ install_manifest.txt
 
 # arduino-mk
 build-mega2560
+build-*
 
 # AFP
 .AppleDouble

@@ -14,7 +14,9 @@ project (robot_raspi)
 add_executable(robot 
 	edge_following_strategy.cpp
 	occupancy_grid.cpp
-	robot_controller.cpp)
+	robot_controller.cpp
+	main.cpp
+	error_handling.cpp)
 
 target_compile_options( robot PRIVATE --std=c++1y PRIVATE -stdlib=libstdc++)
 target_link_libraries( robot ${OpenCV_LIBS} )
