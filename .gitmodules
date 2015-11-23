@@ -1,0 +1,3 @@
+[submodule "arduino/lib/BNO055"]
+	path = arduino/lib/BNO055
+	url = https://github.com/adafruit/Adafruit_BNO055
