@@ -2,4 +2,7 @@ This project is an enhanced version of [my original robot](https://github.com/st
 
 **Requirements**
 
-arduino-mk package, L3G, LSM303 libraries, PID_v1 library 
+platformio, 
+	platformio lib install 31, 
+Adafruit BNO055 lib
+PID_v1 library 

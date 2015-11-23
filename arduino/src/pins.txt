@@ -1,0 +1,38 @@
+USED Ports in Order:
+0, 1, 2, 3, 9, 10 - 16, 18, 19, 26, 27, 38, 39 - 42
+
+
+Motor Power/Direction/Current
+============================
+
+Motor 1: PWR: 14, DIR: 10, CUR: 39
+Motor 2: PWR: 15, DIR: 11, CUR: 40
+Motor 3: PWR: 16, DIR: 12, CUR: 41
+Motor 4: PWR: 26, DIR: 13, CUR: 42
+
+Motor Relay
+===========
+
+9
+
+Encoder Inputs:
+====================
+
+Motor 1: 2 (interrupt 2),
+Motor 2: 3 (interrupt 3),
+Motor 3: 18 (interrupt 6),
+Motor 4: 19 (interrupt 7),
+
+(1000 state changes per three wheel rotations)
+
+Gyro:
+=====
+I2C: SCL = 0, SDA = 1
+
+TODO: Share I2C with new IMU and Lidar 
+
+Sensor Servo
+============
+
+Out: 27 
+In: 38 (A0)

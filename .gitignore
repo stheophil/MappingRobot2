@@ -10,5 +10,10 @@ install_manifest.txt
 build-mega2560
 build-*
 
+# platformio
+.pioenvs
+
 # AFP
 .AppleDouble
+.DS_Store
+

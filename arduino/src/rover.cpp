@@ -1,13 +1,12 @@
 #include "Arduino.h"
 #include "rover.h"
-#include "ahrs.h"
+#include "Adafruit_BNO055.h"
 
 #include "SPI.h"
 #include "PID_v1.h"
 
 // #define PID_TEST
-// #define CALIBRATE
-// #define AHRS_TEST
+#define AHRS_TEST
 
 static const int MAX_SPEED = 500; // max encoder ticks per second
 
@@ -90,10 +89,10 @@ struct SMotor {
 
 SMotor g_amotors[] = {
     // See pins.txt
-    {4, 33, 35, 0},
-    {5, 37, 39, 1},
-    {6, 41, 43, 4},
-    {7, 45, 47, 5}
+    {14, 10, 39, 2},
+    {15, 11, 40, 3},
+    {16, 12, 41, 6},
+    {17, 13, 42, 7}
 };
 
 // PID ctor expects double pointer, can't make it member of SMotor
@@ -118,19 +117,8 @@ void (*c_afnInterrupts[4])() = {
   OnMotor0Interrupt, OnMotor1Interrupt, OnMotor2Interrupt, OnMotor3Interrupt
 };
 
-#define RELAY_PIN 10
-
-struct SSonar {
-    const int ECHO;
-    const int TRIGGER;
-    const int ANGLE; // 0: front, 90: left, -90 right
-};
-
-SSonar g_asonar[] = {
-    { 32, 34, 90 },
-    { 36, 38, 0 },
-    { 40, 42, -90 }
-};
+#define RELAY_PIN 9
+Adafruit_BNO055 g_bno = Adafruit_BNO055(55);
 
 #define countof(a) (sizeof(a)/sizeof(a[0]))
 
@@ -143,6 +131,7 @@ void setup()
     pinMode(RELAY_PIN, OUTPUT);
     digitalWrite(RELAY_PIN, HIGH);
     
+    /*
     for(int i=0; i<countof(g_asonar); ++i) {
         pinMode(g_asonar[i].TRIGGER, OUTPUT);
         pinMode(g_asonar[i].ECHO, INPUT);
@@ -156,11 +145,22 @@ void setup()
     
     // AHRS
     setupAHRS();
+    */
+
+    /* Initialise the sensor */
+    if(!g_bno.begin()) {
+        /* There was a problem detecting the BNO055 ... check your connections */
+        Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+        while(1);
+    }
+    delay(1000);
+    g_bno.setExtCrystalUse(true);
+
     Serial.print(g_chHandshake);
 }
 
 void OnConnection() {
-    // Serial.println("Connected");
+    Serial.println("Connected");
     // Active motor controller
     digitalWrite(RELAY_PIN, LOW);
 }
@@ -170,6 +170,12 @@ void OnDisconnection() {
     // Deactivate motor controller
     digitalWrite(RELAY_PIN, HIGH);
 }
+
+#if defined(PID_TEST)
+#include "pidtest.h"
+#elif defined(AHRS_TEST)
+#include "ahrs_test.h"
+#else
 
 unsigned long g_nLastCommand = 0; // time in millis() of last command
 SRobotCommand g_cmdLastCommand;
@@ -284,20 +290,12 @@ void SendSensorData() {
     Serial.write((byte*)&data, sizeof(data));
 }
 
-#if defined(PID_TEST)
-#include "pidtest.h"
-#elif defined(CALIBRATE)
-#include "calibrate.h"
-#elif defined(AHRS_TEST)
-#include "ahrs_test.h"
-#else
-
 bool g_bConnected = false;
 static const unsigned long c_nTIMETOSTOP = 200; // ms
 
 void loop()
 {
-    updateAHRS(); // ~ 4 ms, runs at 50 Hz
+    // updateAHRS(); // ~ 4 ms, runs at 50 Hz
         
     if(g_bConnected) {
         if(ecmdTURN360==g_cmdLastCommand.m_cmd || ecmdTURN==g_cmdLastCommand.m_cmd) {
