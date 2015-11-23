@@ -1,6 +1,9 @@
 [submodule "arduino/lib/BNO055"]
 	path = arduino/lib/BNO055
 	url = https://github.com/adafruit/Adafruit_BNO055
+	ignore = untracked
+
 [submodule "arduino/lib/PID"]
 	path = arduino/lib/PID
 	url = https://github.com/br3ttb/Arduino-PID-Library/
+	ignore = untracked
