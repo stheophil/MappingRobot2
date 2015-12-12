@@ -1,5 +1,10 @@
 #include "error_handling.h"
-#include "../arduino/rover.h"
+#include "rover.h"
+// #include "robot_controller_c.h"
+
+#include <chrono>
+#include <thread>
+
 #include <iostream>
 #include <cstring>
 
@@ -68,7 +73,35 @@ private:
 
 int main() {
 	// TODO: Reset controller first
-	serial_device serial("/dev/ttyACM0");
+	// TODO: Replace serial_device with boost asio? 
+	// TODO: Setup boost::asio TCP server to send map bitmaps?
+	// OpenCV itself only uses one core, processing single sensor data takes about 0.03 s currently
+	/*
+	auto probotcontroller = robot_new_controller();
+	while(true) {
+		auto start = std::chrono::system_clock::now();
+
+		SSensorData data = {
+			0,
+			0,
+			200,
+			{ 10, 10, 10, 10},
+			ecmdSTOP
+		};
+		SRobotCommand cmd;
+		bool bSend;
+		SPose pose = robot_received_sensor_data(probotcontroller, data, &cmd, &bSend);
+
+        auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> diff = end-start;
+        std::cout << "(" << pose.x << ", " << pose.y << "): " << diff.count() << " s\n";
+
+    	using namespace std::literals;
+        // std::this_thread::sleep_for(1s);
+	}
+	*/
+
+	serial_device serial("/dev/ttyACM1");
 	std::cout << "Waiting for Arduino\n";
 	while(true) {
 		auto chHandshake = serial.read<char>();

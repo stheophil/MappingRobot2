@@ -20,7 +20,7 @@ struct SMove {
 
 struct STurn {
     short m_nSpeed;
-    short m_nYawTarget; // iff ecmdTURN
+    unsigned short m_nYawTarget; // in degrees x 100, iff ecmdTURN
 };
 
 struct SRobotCommand {
@@ -45,7 +45,7 @@ inline struct SRobotCommand RobotCommandTurn(double fYawTarget) {
     struct SRobotCommand rcmd = {
         ecmdTURN,
         c_nMaxTurnSpeed,
-        (short)(-fYawTarget*1000+0.5)
+        (short)(-fYawTarget*1000+0.5) // TODO: To degrees
     };
     return rcmd;
 }
@@ -56,8 +56,8 @@ const struct SRobotCommand c_rcmdTurnLeft = {ecmdMOVE, -c_nMaxFwdSpeed, c_nMaxFw
 const struct SRobotCommand c_rcmdTurnRight = {ecmdMOVE, c_nMaxFwdSpeed, -c_nMaxFwdSpeed};
 
 struct SSensorData { // must be < 64 bytes
-    short m_nYaw;
-    short m_nAngle; // sonar sensor angle
+    unsigned short m_nYaw; // in degrees x 100
+    short m_nAngle; // distance measurement angle, relative to robot
     short m_nDistance; // in cm
     short m_anEncoderTicks[4]; // front left, front right, back left, back right
     ECommand m_ecmdLast; // send last processed command so the controller can check when the turn is completed

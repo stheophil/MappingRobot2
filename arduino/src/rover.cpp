@@ -4,9 +4,17 @@
 
 #include "SPI.h"
 #include "PID_v1.h"
+#include "Servo.h"
 
 // #define PID_TEST
-#define AHRS_TEST
+// #define AHRS_TEST
+
+#define countof(a) (sizeof(a)/sizeof(a[0]))
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Motor and PID control
+//
 
 static const int MAX_SPEED = 500; // max encoder ticks per second
 
@@ -118,40 +126,111 @@ void (*c_afnInterrupts[4])() = {
 };
 
 #define RELAY_PIN 9
-Adafruit_BNO055 g_bno = Adafruit_BNO055(55);
 
-#define countof(a) (sizeof(a)/sizeof(a[0]))
+//////////////////////////////////////////////////////////////////////////////
+//
+// IMU
+//
+
+Adafruit_BNO055 g_bno = Adafruit_BNO055(55);
+unsigned short g_nYaw; // in degrees
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// LIDAR
+//
+struct SFeedbackServo {
+    Servo m_servo;  
+    int const m_nServoPin;
+    int const m_nFeedbackPin;
+    int const m_nMinPosition;
+    int const m_nMaxPosition;
+
+    int m_nMinFeedback;
+    int m_nMaxFeedback;
+
+    SFeedbackServo(int nServoPin, int nFeedbackPin, int nMinPosition = 0, int nMaxPosition = 180)
+        : m_nServoPin(nServoPin)
+        , m_nFeedbackPin(nFeedbackPin)
+        , m_nMinPosition(nMinPosition)
+        , m_nMaxPosition(nMaxPosition)
+    {}
+
+    void setup() {
+        m_servo.attach(m_nServoPin);
+
+        // Calibrate
+        // Move to the minimum position and record the feedback value
+        m_servo.write(m_nMinPosition);
+        delay(3000); // make sure it has time to get there and settle
+        m_nMinFeedback = analogRead(m_nFeedbackPin);
+
+        // Move to the maximum position and record the feedback value
+        m_servo.write(m_nMaxPosition);
+        delay(3000); // make sure it has time to get there and settle
+        m_nMaxFeedback = analogRead(m_nFeedbackPin);
+    }
+
+    int Position() const {
+        return map(analogRead(m_nFeedbackPin), m_nMinFeedback, m_nMaxFeedback, m_nMinPosition, m_nMaxPosition);
+    }
+
+    void loop() {
+        int nAngle = Position();
+        if(nAngle <= m_nMinPosition + 2) {
+            m_servo.write(m_nMaxPosition);
+            delay(20);
+        } else if(nAngle >= m_nMaxPosition - 2) {
+            m_servo.write(m_nMinPosition);
+            delay(20);
+        }
+    } 
+} g_servo(27, 0);
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// LED
+//
+
+#define LED_PIN 6
+void blink(int nDelay, int nTimes = 1) {
+    for(int i = 0; i<nTimes; ++i) {
+        digitalWrite(LED_PIN, LOW);
+        delay(nDelay);
+        digitalWrite(LED_PIN, HIGH);
+        delay(nDelay);
+    }
+}
 
 void setup()
 {
     Serial.begin(57600);
     delay(3000);  //3 seconds delay for enabling to see the start up comments on the serial board
     
+    // Show we are in setup
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, HIGH);
+
     // Port setup
     pinMode(RELAY_PIN, OUTPUT);
     digitalWrite(RELAY_PIN, HIGH);
-    
-    /*
-    for(int i=0; i<countof(g_asonar); ++i) {
-        pinMode(g_asonar[i].TRIGGER, OUTPUT);
-        pinMode(g_asonar[i].ECHO, INPUT);
-    }
+
+    // Servo
+    g_servo.setup();
     
     // Motor setup
-    for(int i=0; i<countof(g_amotors); ++i) {
+    for(unsigned int i=0; i<countof(g_amotors); ++i) {
         g_amotors[i].setup();
         attachInterrupt(g_amotors[i].ENCODER_IRQ, c_afnInterrupts[i], CHANGE);
     }
-    
-    // AHRS
-    setupAHRS();
-    */
 
     /* Initialise the sensor */
-    if(!g_bno.begin()) {
-        /* There was a problem detecting the BNO055 ... check your connections */
-        Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-        while(1);
+    if(!g_bno.begin()) {        
+        while(1) {
+            blink(500);    
+        }
+    } else {
+        blink(200, 3);
     }
     delay(1000);
     g_bno.setExtCrystalUse(true);
@@ -160,7 +239,7 @@ void setup()
 }
 
 void OnConnection() {
-    Serial.println("Connected");
+    blink(200, 3);
     // Active motor controller
     digitalWrite(RELAY_PIN, LOW);
 }
@@ -180,10 +259,11 @@ void OnDisconnection() {
 unsigned long g_nLastCommand = 0; // time in millis() of last command
 SRobotCommand g_cmdLastCommand;
 
-static const int c_nMinYaw = (int)(-M_PI * 1000 + 0.5);
+/*
+static const int c_nMinYaw = (int)(-M_PI * 1000 + 0.5); // TODO: to degrees
 static const int c_nMaxYaw = (int)(M_PI * 1000 + 0.5);
 
-int YawDifference(short nYawTarget) {
+int YawDifference(short nYawTarget) {  // TODO: to degrees
     int nYawDiff = nYawTarget - g_nYaw;
     if(nYawDiff<c_nMinYaw) nYawDiff+=2*c_nMaxYaw;
     if(c_nMaxYaw<=nYawDiff) nYawDiff-=2*c_nMaxYaw;
@@ -222,13 +302,13 @@ void HandleCommand(SRobotCommand const& cmd) {
             }
             
             bool bReverse = false;
-            for(int i=0; i<countof(g_amotors); ++i) {
+            for(unsigned int i=0; i<countof(g_amotors); ++i) {
                 int nSpeed = i%2==0 ? nSpeedLeft : nSpeedRight;
-                bReverse = bReverse || (nSpeed < 0 != g_amotors[i].m_bReverse);
+                bReverse = bReverse || ((nSpeed < 0) != g_amotors[i].m_bReverse);
             }
             if(bReverse) { // stop all motors and reset PID
                 // Serial.println("STOP Motors");
-                for(int i=0; i<countof(g_amotors); ++i) {
+                for(unsigned int i=0; i<countof(g_amotors); ++i) {
                     g_amotors[i].Stop(g_apid[i]);
                 }
                 delay(200);
@@ -243,13 +323,12 @@ void HandleCommand(SRobotCommand const& cmd) {
             break;
         }
         case ecmdSTOP:
-            for(int i=0; i<countof(g_amotors); ++i) g_amotors[i].Stop(g_apid[i]);
+            for(unsigned int i=0; i<countof(g_amotors); ++i) g_amotors[i].Stop(g_apid[i]);
             break;
             
         default: ;
     }
 }
-
 struct SPerformanceCounter {
     unsigned long m_nStart;
     SPerformanceCounter() : m_nStart(micros()) {}
@@ -259,45 +338,42 @@ struct SPerformanceCounter {
     }
 };
 
-int g_iSonar = 0;
+*/
+
+unsigned long g_nLastSensor = 0;
 void SendSensorData() {
-    // TODO: Optimize order in which we accumulate sensor data
-    // so sensor data is consistent with each other
     // TODO: Transmit current or make emergency stop if motor current too high
-    
-    int nDistance; // in cm
-    int nAngle;
-    {
-        digitalWrite(g_asonar[g_iSonar].TRIGGER, HIGH);
-        delayMicroseconds(10);
-        digitalWrite(g_asonar[g_iSonar].TRIGGER, LOW);
-        unsigned long t = pulseIn(g_asonar[g_iSonar].ECHO, 20000);
-        nDistance = (int)((t / 58.0) + 0.5);
-        nAngle = g_asonar[g_iSonar].ANGLE;
+    // TODO: Limit number of transmissions, once every 50 ms?
+    if(millis() - g_nLastSensor > 20) {
+        g_nLastSensor = millis();
+
+        int nDistance = 0; // in cm
+        int nAngle = g_servo.Position();
         
-        g_iSonar = (g_iSonar + 1) % countof(g_asonar);
-    } // ~ 20 ms
-    
-    SSensorData data = {
-        g_nYaw,
-        nAngle, nDistance,
-        g_amotors[0].Pop(),
-        g_amotors[1].Pop(),
-        g_amotors[2].Pop(),
-        g_amotors[3].Pop(),
-        g_cmdLastCommand.m_cmd
-    };
-    Serial.write((byte*)&data, sizeof(data));
+        sensors_event_t event; 
+        g_bno.getEvent(&event);
+        g_nYaw = (short)round(event.orientation.x * 100);
+
+        SSensorData data = {
+            g_nYaw,
+            nAngle, nDistance,
+            g_amotors[0].Pop(),
+            g_amotors[1].Pop(),
+            g_amotors[2].Pop(),
+            g_amotors[3].Pop(),
+            g_cmdLastCommand.m_cmd
+        };
+        Serial.write((byte*)&data, sizeof(data));
+    }
 }
 
 bool g_bConnected = false;
 static const unsigned long c_nTIMETOSTOP = 200; // ms
 
-void loop()
-{
-    // updateAHRS(); // ~ 4 ms, runs at 50 Hz
-        
+void loop() {
     if(g_bConnected) {
+        g_servo.loop();
+/*
         if(ecmdTURN360==g_cmdLastCommand.m_cmd || ecmdTURN==g_cmdLastCommand.m_cmd) {
             const int nYawTolerance = 17; // ~ pi/180 * 1000 ie one degree
             int const nYawDiff = YawDifference(g_cmdLastCommand.arg.turn.m_nYawTarget);
@@ -314,7 +390,7 @@ void loop()
                 if(abs(nYawDiff)<=nYawTolerance) {
                     Serial.println("Turn complete. Stopping");
                     HandleCommand(c_rcmdStop);
-                } else if(bTurnLeft != nYawDiff<=0) {
+                } else if(bTurnLeft != (nYawDiff<=0)) {
                     Serial.println("Wrong direction. Did yaw measurement change? Try again.");
                     HandleCommand(g_cmdLastCommand);
                 }
@@ -337,9 +413,10 @@ void loop()
         } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
             HandleCommand(c_rcmdStop);
         }
-        for(int i=0; i<countof(g_amotors); ++i) {
+        for(unsigned int i=0; i<countof(g_amotors); ++i) {
             g_amotors[i].ComputePID(g_apid[i]); // effective sample time ~ 130 ms
         }
+*/
         SendSensorData(); // ~ 40 ms
     } else {
         if(Serial.available() && Serial.read()==g_chHandshake) {

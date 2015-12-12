@@ -9,6 +9,7 @@ find_package(OpenCV REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories("../arduino/src")
 
 project (robot_raspi)
 add_executable(robot 
@@ -17,6 +18,9 @@ add_executable(robot
 	robot_controller.cpp
 	main.cpp
 	error_handling.cpp)
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 
 target_compile_options( robot PRIVATE --std=c++1y PRIVATE -stdlib=libstdc++)
 target_link_libraries( robot ${OpenCV_LIBS} )
