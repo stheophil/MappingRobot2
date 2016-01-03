@@ -4,10 +4,12 @@
 
 #include "SPI.h"
 #include "PID_v1.h"
-#include "Servo.h"
+#include "XL320.h"
+#include "HalfDuplexHardwareSerial.h"
 
 // #define PID_TEST
 // #define AHRS_TEST
+#define SERIAL_TRACE
 
 #define countof(a) (sizeof(a)/sizeof(a[0]))
 
@@ -140,52 +142,53 @@ unsigned short g_nYaw; // in degrees
 // LIDAR
 //
 struct SFeedbackServo {
-    Servo m_servo;  
-    int const m_nServoPin;
-    int const m_nFeedbackPin;
-    int const m_nMinPosition;
-    int const m_nMaxPosition;
+    XL320 m_servo;
+    static int const c_nServoID = 1;
+    static int const c_nMinAngle = -150; // TODO: Calibrate
+    static int const c_nMaxAngle = 150; 
+    static int const c_nAngleTolerance = 15; // Depends on the pull the cables exert
 
-    int m_nMinFeedback;
-    int m_nMaxFeedback;
-
-    SFeedbackServo(int nServoPin, int nFeedbackPin, int nMinPosition = 0, int nMaxPosition = 180)
-        : m_nServoPin(nServoPin)
-        , m_nFeedbackPin(nFeedbackPin)
-        , m_nMinPosition(nMinPosition)
-        , m_nMaxPosition(nMaxPosition)
-    {}
+    SFeedbackServo() {}
 
     void setup() {
-        m_servo.attach(m_nServoPin);
+        // Half-Duplex serial
+        pinMode(2, INPUT_PULLUP);
+        pinMode(3, INPUT_PULLUP);
 
-        // Calibrate
-        // Move to the minimum position and record the feedback value
-        m_servo.write(m_nMinPosition);
-        delay(3000); // make sure it has time to get there and settle
-        m_nMinFeedback = analogRead(m_nFeedbackPin);
+        HalfDuplexSerial1.begin(115200);
+        m_servo.begin(HalfDuplexSerial1);
+        delay(1000);
 
-        // Move to the maximum position and record the feedback value
-        m_servo.write(m_nMaxPosition);
-        delay(3000); // make sure it has time to get there and settle
-        m_nMaxFeedback = analogRead(m_nFeedbackPin);
+        // A new factory-configured Dynamixel XL320 servo is set to a baud rate of
+        // 1 Mbps, which the Teensy++ 2.0 can deliver. I don't think the Half-duplex
+        // serial implementation can, though. I think it's based on the Software
+        // serial code. 
+        // g_servo.sendPacket(g_nServoID, XL_BAUD_RATE, 2); // = 115200
+
+        m_servo.setJointSpeed(c_nServoID, 300); // [0, 1023]
+        delay(300);
+        m_servo.moveJoint(c_nServoID, 0); // [0, 1023]
+        delay(300);
     }
 
-    int Position() const {
-        return map(analogRead(m_nFeedbackPin), m_nMinFeedback, m_nMaxFeedback, m_nMinPosition, m_nMaxPosition);
-    }
-
+    int m_nPosition = -1; // negative value implies error
     void loop() {
-        int nAngle = Position();
-        if(nAngle <= m_nMinPosition + 2) {
-            m_servo.write(m_nMaxPosition);
-            delay(20);
-        } else if(nAngle >= m_nMaxPosition - 2) {
-            m_servo.write(m_nMinPosition);
-            delay(20);
+        int nJointOrError = m_servo.getJointPosition(c_nServoID);
+        if(0<=nJointOrError) {
+            if(nJointOrError <= c_nAngleTolerance) {
+                m_servo.moveJoint(c_nServoID, 1023);
+            } else if(nJointOrError >= 1023 - c_nAngleTolerance) {
+                m_servo.moveJoint(c_nServoID, 0);
+            } 
+            m_nPosition = nJointOrError;
         }
-    } 
-} g_servo(27, 0);
+    }
+
+    int Angle() const {
+        return map(m_nPosition, 0, 1023, c_nMinAngle, c_nMaxAngle);
+    }
+
+} g_servo;
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -217,7 +220,7 @@ void setup()
 
     // Servo
     g_servo.setup();
-    
+
     // Motor setup
     for(unsigned int i=0; i<countof(g_amotors); ++i) {
         g_amotors[i].setup();
@@ -344,11 +347,14 @@ unsigned long g_nLastSensor = 0;
 void SendSensorData() {
     // TODO: Transmit current or make emergency stop if motor current too high
     // TODO: Limit number of transmissions, once every 50 ms?
-    if(millis() - g_nLastSensor > 20) {
+    if(millis() - g_nLastSensor > 10) {
+#ifdef SERIAL_TRACE
+        Serial.println(g_servo.Angle());
+#else
         g_nLastSensor = millis();
 
         int nDistance = 0; // in cm
-        int nAngle = g_servo.Position();
+        int nAngle = g_servo.Angle();
         
         sensors_event_t event; 
         g_bno.getEvent(&event);
@@ -364,6 +370,7 @@ void SendSensorData() {
             g_cmdLastCommand.m_cmd
         };
         Serial.write((byte*)&data, sizeof(data));
+#endif
     }
 }
 
@@ -371,8 +378,9 @@ bool g_bConnected = false;
 static const unsigned long c_nTIMETOSTOP = 200; // ms
 
 void loop() {
-    if(g_bConnected) {
+    if(g_bConnected) {        
         g_servo.loop();
+
 /*
         if(ecmdTURN360==g_cmdLastCommand.m_cmd || ecmdTURN==g_cmdLastCommand.m_cmd) {
             const int nYawTolerance = 17; // ~ pi/180 * 1000 ie one degree

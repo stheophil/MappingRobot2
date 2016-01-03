@@ -1,5 +1,5 @@
 USED Ports in Order:
-0, 1, 2, 3, 9, 10 - 16, 18, 19, 26, 27, 38, 39 - 42
+0, 1, 2, 3, 9, 10 - 16, 18, 19, 26, 36, 37, 39 - 42
 
 
 Motor Power/Direction/Current
@@ -18,8 +18,8 @@ Motor Relay
 Encoder Inputs:
 ====================
 
-Motor 1: 2 (interrupt 2),
-Motor 2: 3 (interrupt 3),
+Motor 1: 36 (interrupt 4),
+Motor 2: 37 (interrupt 5),
 Motor 3: 18 (interrupt 6),
 Motor 4: 19 (interrupt 7),
 
@@ -34,5 +34,4 @@ TODO: Share I2C with new IMU and Lidar
 Sensor Servo
 ============
 
-Out: 27 
-In: 38 (A0)
+Half-duplex serial: 2, 3

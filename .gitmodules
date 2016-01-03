@@ -7,3 +7,9 @@
 	path = arduino/lib/PID
 	url = https://github.com/br3ttb/Arduino-PID-Library/
 	ignore = untracked
+[submodule "arduino/lib/XL320"]
+	path = arduino/lib/XL320
+	url = https://github.com/hackerspace-adelaide/XL320
+[submodule "arduino/lib/HalfDuplex"]
+	path = arduino/lib/HalfDuplex
+	url = https://github.com/hackerspace-adelaide/HalfDuplexHardwareSerial
