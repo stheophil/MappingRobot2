@@ -10,6 +10,8 @@
 [submodule "arduino/lib/XL320"]
 	path = arduino/lib/XL320
 	url = https://github.com/hackerspace-adelaide/XL320
+	ignore = untracked
 [submodule "arduino/lib/HalfDuplex"]
 	path = arduino/lib/HalfDuplex
 	url = https://github.com/hackerspace-adelaide/HalfDuplexHardwareSerial
+	ignore = untracked
