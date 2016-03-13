@@ -15,3 +15,7 @@
 	path = arduino/lib/HalfDuplex
 	url = https://github.com/hackerspace-adelaide/HalfDuplexHardwareSerial
 	ignore = untracked
+[submodule "arduino/lib/LIDAR"]
+	path = arduino/lib/LIDAR
+	url = https://github.com/PulsedLight3D/LIDARLite_v2_Arduino_Library
+	ignore = untracked

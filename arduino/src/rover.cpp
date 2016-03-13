@@ -6,6 +6,7 @@
 #include "PID_v1.h"
 #include "XL320.h"
 #include "HalfDuplexHardwareSerial.h"
+#include "LIDARLite/LIDARLite.h"
 
 // #define PID_TEST
 // #define AHRS_TEST
@@ -135,7 +136,8 @@ void (*c_afnInterrupts[4])() = {
 //
 
 Adafruit_BNO055 g_bno = Adafruit_BNO055(55);
-unsigned short g_nYaw; // in degrees
+bool g_bBNO = false;
+unsigned short g_nYaw = 0; // in degrees
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -146,6 +148,8 @@ struct SFeedbackServo {
     static int const c_nServoID = 1;
     static int const c_nMinAngle = -150; // TODO: Calibrate
     static int const c_nMaxAngle = 150; 
+    static int const c_nMinPosition = 0;
+    static int const c_nMaxPosition = 1023;
     static int const c_nAngleTolerance = 15; // Depends on the pull the cables exert
 
     SFeedbackServo() {}
@@ -165,9 +169,9 @@ struct SFeedbackServo {
         // serial code. 
         // g_servo.sendPacket(g_nServoID, XL_BAUD_RATE, 2); // = 115200
 
-        m_servo.setJointSpeed(c_nServoID, 300); // [0, 1023]
+        m_servo.setJointSpeed(c_nServoID, 200); // [0, 1023]
         delay(300);
-        m_servo.moveJoint(c_nServoID, 0); // [0, 1023]
+        m_servo.moveJoint(c_nServoID, c_nMinPosition); // [0, 1023]
         delay(300);
     }
 
@@ -176,19 +180,21 @@ struct SFeedbackServo {
         int nJointOrError = m_servo.getJointPosition(c_nServoID);
         if(0<=nJointOrError) {
             if(nJointOrError <= c_nAngleTolerance) {
-                m_servo.moveJoint(c_nServoID, 1023);
-            } else if(nJointOrError >= 1023 - c_nAngleTolerance) {
-                m_servo.moveJoint(c_nServoID, 0);
-            } 
+                m_servo.moveJoint(c_nServoID, c_nMaxPosition);
+            } else if(nJointOrError >= c_nMaxPosition - c_nAngleTolerance) {
+                m_servo.moveJoint(c_nServoID, c_nMinPosition);
+            }
             m_nPosition = nJointOrError;
         }
     }
 
     int Angle() const {
-        return map(m_nPosition, 0, 1023, c_nMinAngle, c_nMaxAngle);
+        return map(m_nPosition, c_nMinPosition, c_nMaxPosition, c_nMinAngle, c_nMaxAngle);
     }
 
 } g_servo;
+
+LIDARLite g_lidar;
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -206,10 +212,12 @@ void blink(int nDelay, int nTimes = 1) {
 }
 
 void setup()
-{
+{    
     Serial.begin(57600);
     delay(3000);  //3 seconds delay for enabling to see the start up comments on the serial board
     
+    Serial.println("Hello!");
+
     // Show we are in setup
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, HIGH);
@@ -218,8 +226,10 @@ void setup()
     pinMode(RELAY_PIN, OUTPUT);
     digitalWrite(RELAY_PIN, HIGH);
 
-    // Servo
+    // Servo & Lidar
     g_servo.setup();
+    g_lidar.begin();
+    // g_lidar.beginContinuous();
 
     // Motor setup
     for(unsigned int i=0; i<countof(g_amotors); ++i) {
@@ -228,15 +238,9 @@ void setup()
     }
 
     /* Initialise the sensor */
-    if(!g_bno.begin()) {        
-        while(1) {
-            blink(500);    
-        }
-    } else {
-        blink(200, 3);
-    }
+    g_bBNO = g_bno.begin();
     delay(1000);
-    g_bno.setExtCrystalUse(true);
+    if(g_bBNO) g_bno.setExtCrystalUse(true);
 
     Serial.print(g_chHandshake);
 }
@@ -348,17 +352,23 @@ void SendSensorData() {
     // TODO: Transmit current or make emergency stop if motor current too high
     // TODO: Limit number of transmissions, once every 50 ms?
     if(millis() - g_nLastSensor > 10) {
+        if(g_bBNO) {
+            sensors_event_t event; 
+            g_bno.getEvent(&event);
+            g_nYaw = (short)round(event.orientation.x * 100);   
+        }
+
 #ifdef SERIAL_TRACE
-        Serial.println(g_servo.Angle());
+        Serial.println(g_nYaw);
+        Serial.print('\t');
+       	Serial.print(g_servo.Angle());
+        Serial.print("\t");
+        Serial.println(g_lidar.distance());
 #else
         g_nLastSensor = millis();
 
-        int nDistance = 0; // in cm
+        int nDistance = g_lidar.distanceContinuous(); // in cm
         int nAngle = g_servo.Angle();
-        
-        sensors_event_t event; 
-        g_bno.getEvent(&event);
-        g_nYaw = (short)round(event.orientation.x * 100);
 
         SSensorData data = {
             g_nYaw,
@@ -374,7 +384,7 @@ void SendSensorData() {
     }
 }
 
-bool g_bConnected = false;
+bool g_bConnected = true;
 static const unsigned long c_nTIMETOSTOP = 200; // ms
 
 void loop() {
