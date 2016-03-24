@@ -1,14 +1,15 @@
 USED Ports in Order:
-0, 1, 2, 3, 9, 10 - 16, 18, 19, 26, 36, 37, 39 - 42
+0, 1, 2, 3, 9, 10 - 12, 14-16, 18, 19, 21, 26, 36, 37, 42-45
 
+Pins 13, 17 don't seem to go high (soldering problem?)
 
 Motor Power/Direction/Current
 ============================
 
-Motor 1: PWM: 14, DIR: 13, CUR: 45
-Motor 2: PWM: 15, DIR: 12, CUR: 44
-Motor 3: PWM: 16, DIR: 11, CUR: 43
-Motor 4: PWM: 26, DIR: 10, CUR: 42
+Motor 1: PWR: 14, DIR: 21, CUR: 45
+Motor 2: PWR: 15, DIR: 12, CUR: 44
+Motor 3: PWR: 16, DIR: 11, CUR: 43
+Motor 4: PWR: 26, DIR: 10, CUR: 42
 
 Cable colors:
 PWM: green, DIR: white, CUR: blue
@@ -23,8 +24,8 @@ Encoder Inputs:
 
 Motor 1: 36 (interrupt 4),
 Motor 2: 37 (interrupt 5),
-Motor 3: 18 (interrupt 6),
-Motor 4: 19 (interrupt 7),
+Motor 3: 19 (interrupt 7),
+Motor 4: 18 (interrupt 6),
 
 (grey cable)
 (1000 state changes per three wheel rotations)

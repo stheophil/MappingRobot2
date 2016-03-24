@@ -8,8 +8,6 @@
 #include "HalfDuplexHardwareSerial.h"
 #include "LIDARLite/LIDARLite.h"
 
-// #define PID_TEST
-// #define AHRS_TEST
 #define SERIAL_TRACE
 
 #define countof(a) (sizeof(a)/sizeof(a[0]))
@@ -31,7 +29,8 @@ struct SMotor {
     void setup() {
         pinMode(POWER, OUTPUT);
         pinMode(DIR, OUTPUT);
-        pinMode(CURRENT, INPUT);
+	    pinMode(CURRENT, INPUT);
+        pinMode(ENCODER_IRQ, INPUT_PULLUP);
         
         m_nTicks = 0;
         m_bReverse = false;
@@ -47,7 +46,7 @@ struct SMotor {
     double m_fPower; // pid output in [0, 255]
     
     unsigned long m_nLastCompute;
-    int m_nTicksPID;
+    volatile int m_nTicksPID;
     
     bool m_bReverse;
     void SetSpeed(int nSpeed) {
@@ -81,7 +80,7 @@ struct SMotor {
         return false;
     }
     
-    int m_nTicks;
+    volatile int m_nTicks;
     void onInterrupt() {
         ++m_nTicks;
         ++m_nTicksPID;
@@ -100,10 +99,10 @@ struct SMotor {
 
 SMotor g_amotors[] = {
     // See pins.txt
-    {14, 10, 39, 2},
-    {15, 11, 40, 3},
-    {16, 12, 41, 6},
-    {17, 13, 42, 7}
+    {14, 21, 45, /*4*/36},
+    {15, 12, 44, /*5*/37},
+    {16, 11, 43, /*6*/19},
+    {26, 10, 42, /*7*/18}
 };
 
 // PID ctor expects double pointer, can't make it member of SMotor
@@ -146,10 +145,10 @@ unsigned short g_nYaw = 0; // in degrees
 struct SFeedbackServo {
     XL320 m_servo;
     static int const c_nServoID = 1;
-    static int const c_nMinAngle = -150; // TODO: Calibrate
-    static int const c_nMaxAngle = 150; 
-    static int const c_nMinPosition = 0;
-    static int const c_nMaxPosition = 1023;
+    // static int const c_nMinAngle = -104;
+    // static int const c_nMaxAngle = 104; 
+    static int const c_nMinPosition = 144;
+    static int const c_nMaxPosition = 880;
     static int const c_nAngleTolerance = 15; // Depends on the pull the cables exert
 
     SFeedbackServo() {}
@@ -169,7 +168,7 @@ struct SFeedbackServo {
         // serial code. 
         // g_servo.sendPacket(g_nServoID, XL_BAUD_RATE, 2); // = 115200
 
-        m_servo.setJointSpeed(c_nServoID, 200); // [0, 1023]
+        m_servo.setJointSpeed(c_nServoID, 400); // [0, 1023]
         delay(300);
         m_servo.moveJoint(c_nServoID, c_nMinPosition); // [0, 1023]
         delay(300);
@@ -179,7 +178,7 @@ struct SFeedbackServo {
     void loop() {
         int nJointOrError = m_servo.getJointPosition(c_nServoID);
         if(0<=nJointOrError) {
-            if(nJointOrError <= c_nAngleTolerance) {
+            if(nJointOrError <= c_nMinPosition + c_nAngleTolerance) {
                 m_servo.moveJoint(c_nServoID, c_nMaxPosition);
             } else if(nJointOrError >= c_nMaxPosition - c_nAngleTolerance) {
                 m_servo.moveJoint(c_nServoID, c_nMinPosition);
@@ -189,7 +188,7 @@ struct SFeedbackServo {
     }
 
     int Angle() const {
-        return map(m_nPosition, c_nMinPosition, c_nMaxPosition, c_nMinAngle, c_nMaxAngle);
+        return map(m_nPosition, 0, 1023, -150, 150);
     }
 
 } g_servo;
@@ -213,10 +212,12 @@ void blink(int nDelay, int nTimes = 1) {
 
 void setup()
 {    
-    Serial.begin(57600);
+    Serial.begin(230400);
     delay(3000);  //3 seconds delay for enabling to see the start up comments on the serial board
-    
+
+#ifdef SERIAL_TRACE    
     Serial.println("Hello!");
+#endif
 
     // Show we are in setup
     pinMode(LED_PIN, OUTPUT);
@@ -237,7 +238,7 @@ void setup()
         attachInterrupt(g_amotors[i].ENCODER_IRQ, c_afnInterrupts[i], CHANGE);
     }
 
-    /* Initialise the sensor */
+    // Initialise the IMU (connection is optional)
     g_bBNO = g_bno.begin();
     delay(1000);
     if(g_bBNO) g_bno.setExtCrystalUse(true);
@@ -247,7 +248,7 @@ void setup()
 
 void OnConnection() {
     blink(200, 3);
-    // Active motor controller
+    // Activate motor controller
     digitalWrite(RELAY_PIN, LOW);
 }
 
@@ -256,12 +257,6 @@ void OnDisconnection() {
     // Deactivate motor controller
     digitalWrite(RELAY_PIN, HIGH);
 }
-
-#if defined(PID_TEST)
-#include "pidtest.h"
-#elif defined(AHRS_TEST)
-#include "ahrs_test.h"
-#else
 
 unsigned long g_nLastCommand = 0; // time in millis() of last command
 SRobotCommand g_cmdLastCommand;
@@ -384,13 +379,12 @@ void SendSensorData() {
     }
 }
 
-bool g_bConnected = true;
+bool g_bConnected = false;
 static const unsigned long c_nTIMETOSTOP = 200; // ms
 
 void loop() {
     if(g_bConnected) {        
         g_servo.loop();
-
 /*
         if(ecmdTURN360==g_cmdLastCommand.m_cmd || ecmdTURN==g_cmdLastCommand.m_cmd) {
             const int nYawTolerance = 17; // ~ pi/180 * 1000 ie one degree
@@ -443,4 +437,3 @@ void loop() {
         }
     }
 }
-#endif

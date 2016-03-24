@@ -6,3 +6,5 @@ platformio,
 	platformio lib install 31, 
 Adafruit BNO055 lib
 PID_v1 library 
+XL320 library, HalfDuplex library
+LidarLite library
