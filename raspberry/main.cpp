@@ -22,17 +22,17 @@ struct serial_device {
 		VERIFY(0==tcgetattr(m_fd, &m_ttySaved));
 		
 		termios tty = m_ttySaved;
-		speed_t spd = B57600;
-    	VERIFY(0==cfsetospeed(&tty, spd));
-    	VERIFY(0==cfsetispeed(&tty, spd));
+		speed_t spd = B230400;
+		VERIFY(0==cfsetospeed(&tty, spd));
+		VERIFY(0==cfsetispeed(&tty, spd));
 
-    	cfmakeraw(&tty); // returns void
+		cfmakeraw(&tty); // returns void
 
-    	tty.c_cflag &= ~CSTOPB;  // send 1 stop bit
-    	tty.c_cflag &= ~CRTSCTS; // no HW flow control
-    	tty.c_cflag |= CREAD; // enable read
+		tty.c_cflag &= ~CSTOPB;  // send 1 stop bit
+		tty.c_cflag &= ~CRTSCTS; // no HW flow control
+		tty.c_cflag |= CREAD; // enable read
 
-    	VERIFY(0==tcsetattr(m_fd, TCSANOW, &tty));
+		VERIFY(0==tcsetattr(m_fd, TCSANOW, &tty));
 	}
 
 	template<typename TSend>
@@ -63,7 +63,7 @@ struct serial_device {
 
 	~serial_device() {
 		VERIFY(0==tcsetattr(m_fd, TCSANOW, &m_ttySaved));
-    	VERIFY(0==close(m_fd));
+		VERIFY(0==close(m_fd));
 	}
 
 private:
@@ -71,7 +71,7 @@ private:
 	termios m_ttySaved;
 };
 
-int main() {
+int main(int nArgs, char* aczArgs[]) {
 	// TODO: Reset controller first
 	// TODO: Replace serial_device with boost asio? 
 	// TODO: Setup boost::asio TCP server to send map bitmaps?
@@ -92,32 +92,49 @@ int main() {
 		bool bSend;
 		SPose pose = robot_received_sensor_data(probotcontroller, data, &cmd, &bSend);
 
-        auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> diff = end-start;
-        std::cout << "(" << pose.x << ", " << pose.y << "): " << diff.count() << " s\n";
+		auto end = std::chrono::system_clock::now();
+		std::chrono::duration<double> diff = end-start;
+		std::cout << "(" << pose.x << ", " << pose.y << "): " << diff.count() << " s\n";
 
-    	using namespace std::literals;
-        // std::this_thread::sleep_for(1s);
+		using namespace std::literals;
+		// std::this_thread::sleep_for(1s);
 	}
 	*/
+	if(nArgs<2) {
+		std::cout << "Syntax: robot <ttyDevice>\n";
+		return 1;
+	}
 
-	serial_device serial("/dev/ttyACM1");
+	std::cout << "Opening " << aczArgs[1] << "\n";
+	serial_device serial(aczArgs[1]);
 	std::cout << "Waiting for Arduino\n";
+
+	bool bSentReset = false;
 	while(true) {
 		auto chHandshake = serial.read<char>();
 		std::cout << chHandshake;
-		if(chHandshake==g_chHandshake) break;
+		if(chHandshake==g_chHandshake) {
+			break;
+		} else if(!bSentReset) {
+			bSentReset = true;
+			serial.write(SRobotCommand::reset());
+		}
 	}
 
 	std::cout << "\n Send Handshake\n";
 	serial.write(g_chHandshake);
 
+	auto start = std::chrono::system_clock::now();
 	while(true) {
 		SSensorData data = serial.read<SSensorData>();
-		std::cout << data.m_nYaw << " "
+		
+		auto end = std::chrono::system_clock::now();
+		std::chrono::duration<double> diff = end-start;
+
+		std::cout << diff.count() << ": " << data.m_nYaw << " "
 			<< data.m_nAngle << " "
-			<< data.m_nDistance << " "
-			<< data.m_ecmdLast << std::endl;	
+			<< data.m_nDistance 
+			<< std::endl;
 	}
 	return 0;
 }

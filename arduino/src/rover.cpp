@@ -8,7 +8,7 @@
 #include "HalfDuplexHardwareSerial.h"
 #include "LIDARLite/LIDARLite.h"
 
-#define SERIAL_TRACE
+// #define SERIAL_TRACE
 
 #define countof(a) (sizeof(a)/sizeof(a[0]))
 
@@ -159,6 +159,7 @@ struct SFeedbackServo {
         pinMode(3, INPUT_PULLUP);
 
         HalfDuplexSerial1.begin(115200);
+        HalfDuplexSerial1.setTimeout(10);
         m_servo.begin(HalfDuplexSerial1);
         delay(1000);
 
@@ -210,6 +211,8 @@ void blink(int nDelay, int nTimes = 1) {
     }
 }
 
+void OnDisconnection();
+
 void setup()
 {    
     Serial.begin(230400);
@@ -230,6 +233,7 @@ void setup()
     // Servo & Lidar
     g_servo.setup();
     g_lidar.begin();
+    // TODO: Does this increase speed of LIDAR readings
     // g_lidar.beginContinuous();
 
     // Motor setup
@@ -243,71 +247,39 @@ void setup()
     delay(1000);
     if(g_bBNO) g_bno.setExtCrystalUse(true);
 
-    Serial.print(g_chHandshake);
+    OnDisconnection();
 }
 
+bool g_bConnected = false;
 void OnConnection() {
     blink(200, 3);
+    g_bConnected = true;
     // Activate motor controller
     digitalWrite(RELAY_PIN, LOW);
 }
 
 void OnDisconnection() {
-    // Serial.println("Disconnected");
+    g_bConnected = false;
     // Deactivate motor controller
     digitalWrite(RELAY_PIN, HIGH);
+    Serial.print(g_chHandshake);
 }
 
 unsigned long g_nLastCommand = 0; // time in millis() of last command
-SRobotCommand g_cmdLastCommand;
-
-/*
-static const int c_nMinYaw = (int)(-M_PI * 1000 + 0.5); // TODO: to degrees
-static const int c_nMaxYaw = (int)(M_PI * 1000 + 0.5);
-
-int YawDifference(short nYawTarget) {  // TODO: to degrees
-    int nYawDiff = nYawTarget - g_nYaw;
-    if(nYawDiff<c_nMinYaw) nYawDiff+=2*c_nMaxYaw;
-    if(c_nMaxYaw<=nYawDiff) nYawDiff-=2*c_nMaxYaw;
-    return nYawDiff;
-} // < 0 -> turn left
-
 void HandleCommand(SRobotCommand const& cmd) {
-    g_cmdLastCommand = cmd;
     g_nLastCommand = millis();
-    
-    switch(cmd.m_cmd) {
+    switch(cmd.m_ecmd) {
+        case ecmdRESET: 
+            OnDisconnection();
+            break;
         case ecmdMOVE:
-        case ecmdTURN360:
-        case ecmdTURN:
         {
-            short nSpeedLeft;
-            short nSpeedRight;
-            if(ecmdMOVE==cmd.m_cmd) {
-                nSpeedLeft = cmd.arg.move.m_nSpeedLeft;
-                nSpeedRight = cmd.arg.move.m_nSpeedRight;
-            } else {
-                bool const bTurnLeft = ecmdTURN360==cmd.m_cmd || YawDifference(cmd.arg.turn.m_nYawTarget)<0;
-                nSpeedLeft = cmd.arg.turn.m_nSpeed * (bTurnLeft ? -1 : 1);
-                nSpeedRight = cmd.arg.turn.m_nSpeed * (bTurnLeft ? 1 : -1);
-
-                if(ecmdTURN360==cmd.m_cmd) {
-                    g_cmdLastCommand.arg.turn.m_nYawTarget = g_nYaw;
-                    // Serial.println("Turn 360");
-                } else {
-                    // Serial.print("Turn ");
-                    // Serial.print(bTurnLeft ? "left " : "right ");
-                    // Serial.print(g_nYaw);
-                    // Serial.print(" -> ");
-                    // Serial.println(cmd.arg.turn.m_nYawTarget);
-                }
-            }
-            
             bool bReverse = false;
             for(unsigned int i=0; i<countof(g_amotors); ++i) {
-                int nSpeed = i%2==0 ? nSpeedLeft : nSpeedRight;
+                int const nSpeed = i%2==0 ? cmd.m_nSpeedLeft : cmd.m_nSpeedRight;
                 bReverse = bReverse || ((nSpeed < 0) != g_amotors[i].m_bReverse);
             }
+
             if(bReverse) { // stop all motors and reset PID
                 // Serial.println("STOP Motors");
                 for(unsigned int i=0; i<countof(g_amotors); ++i) {
@@ -315,100 +287,58 @@ void HandleCommand(SRobotCommand const& cmd) {
                 }
                 delay(200);
             }
-                
-            // LEFT MOTORS:
-            g_amotors[0].SetSpeed(constrain(nSpeedLeft, -MAX_SPEED, MAX_SPEED));
-            g_amotors[2].SetSpeed(constrain(nSpeedLeft, -MAX_SPEED, MAX_SPEED));
-            // RIGHT MOTORS
-            g_amotors[1].SetSpeed(constrain(nSpeedRight, -MAX_SPEED, MAX_SPEED));
-            g_amotors[3].SetSpeed(constrain(nSpeedRight, -MAX_SPEED, MAX_SPEED));
-            break;
+
+            for(unsigned int i=0; i<countof(g_amotors); ++i) {
+                int const nSpeed = i%2==0 ? cmd.m_nSpeedLeft : cmd.m_nSpeedRight;
+                if(0==nSpeed) {
+                    g_amotors[i].Stop(g_apid[i]);
+                } else {
+                    g_amotors[i].SetSpeed(constrain(nSpeed, -MAX_SPEED, MAX_SPEED));
+                }
+            }
         }
-        case ecmdSTOP:
-            for(unsigned int i=0; i<countof(g_amotors); ++i) g_amotors[i].Stop(g_apid[i]);
-            break;
-            
-        default: ;
     }
 }
-struct SPerformanceCounter {
-    unsigned long m_nStart;
-    SPerformanceCounter() : m_nStart(micros()) {}
-    unsigned long Stop() {
-        unsigned long nEnd = micros();
-        return nEnd - m_nStart;
-    }
-};
 
-*/
-
-unsigned long g_nLastSensor = 0;
 void SendSensorData() {
     // TODO: Transmit current or make emergency stop if motor current too high
     // TODO: Limit number of transmissions, once every 50 ms?
-    if(millis() - g_nLastSensor > 10) {
-        if(g_bBNO) {
-            sensors_event_t event; 
-            g_bno.getEvent(&event);
-            g_nYaw = (short)round(event.orientation.x * 100);   
-        }
+    
+    if(g_bBNO) {
+        sensors_event_t event; 
+        g_bno.getEvent(&event);
+        g_nYaw = (short)round(event.orientation.x * 100);   
+    }
 
 #ifdef SERIAL_TRACE
-        Serial.println(g_nYaw);
-        Serial.print('\t');
-       	Serial.print(g_servo.Angle());
-        Serial.print("\t");
-        Serial.println(g_lidar.distance());
+    Serial.println(g_nYaw);
+    Serial.print('\t');
+   	Serial.print(g_servo.Angle());
+    Serial.print("\t");
+    Serial.println(g_lidar.distance());
 #else
-        g_nLastSensor = millis();
+    int nDistance = g_lidar.distance(); // in cm
+    int nAngle = g_servo.Angle();
 
-        int nDistance = g_lidar.distanceContinuous(); // in cm
-        int nAngle = g_servo.Angle();
-
-        SSensorData data = {
-            g_nYaw,
-            nAngle, nDistance,
-            g_amotors[0].Pop(),
-            g_amotors[1].Pop(),
-            g_amotors[2].Pop(),
-            g_amotors[3].Pop(),
-            g_cmdLastCommand.m_cmd
-        };
-        Serial.write((byte*)&data, sizeof(data));
+    SSensorData data = {
+        g_nYaw,
+        nAngle, nDistance,
+        g_amotors[0].Pop(),
+        g_amotors[1].Pop(),
+        g_amotors[2].Pop(),
+        g_amotors[3].Pop()
+    };
+    Serial.write((byte*)&data, sizeof(data));
 #endif
-    }
 }
 
-bool g_bConnected = false;
 static const unsigned long c_nTIMETOSTOP = 200; // ms
 
 void loop() {
-    if(g_bConnected) {        
+    if(g_bConnected) {
         g_servo.loop();
-/*
-        if(ecmdTURN360==g_cmdLastCommand.m_cmd || ecmdTURN==g_cmdLastCommand.m_cmd) {
-            const int nYawTolerance = 17; // ~ pi/180 * 1000 ie one degree
-            int const nYawDiff = YawDifference(g_cmdLastCommand.arg.turn.m_nYawTarget);
-            
-            // wait a bit before comparing angles when rotating 360
-            if(ecmdTURN360==g_cmdLastCommand.m_cmd) {
-                if(1500 < millis() - g_nLastCommand
-                && nYawDiff >= -nYawTolerance && nYawDiff < 3*nYawTolerance) { // Upper tolerance depends on turn speed!
-                    Serial.println("Turned 360 deg. Stopping");
-                    HandleCommand(c_rcmdStop);
-                }
-            } else {
-                bool const bTurnLeft = g_amotors[0].m_bReverse;
-                if(abs(nYawDiff)<=nYawTolerance) {
-                    Serial.println("Turn complete. Stopping");
-                    HandleCommand(c_rcmdStop);
-                } else if(bTurnLeft != (nYawDiff<=0)) {
-                    Serial.println("Wrong direction. Did yaw measurement change? Try again.");
-                    HandleCommand(g_cmdLastCommand);
-                }
-            }
-            
-        } else if(0<Serial.available()) {
+        
+        if(0<Serial.available()) {
             SRobotCommand cmd;
             char* pcmd = (char*)&cmd;
             char* pcmdEnd = pcmd+sizeof(SRobotCommand);
@@ -417,22 +347,22 @@ void loop() {
             }
             if(pcmd==pcmdEnd) {
                 HandleCommand(cmd);
-            } else {
-                Serial.print("Incomplete Command. Read ");
-                Serial.print(pcmd - (char*)&cmd);
-                Serial.println(" bytes");
-            }
+            }             
+            // else {
+            //     Serial.print("Incomplete Command. Read ");
+            //     Serial.print(pcmd - (char*)&cmd);
+            //     Serial.println(" bytes");
+            // }
         } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
-            HandleCommand(c_rcmdStop);
+            HandleCommand(SRobotCommand::stop());
         }
         for(unsigned int i=0; i<countof(g_amotors); ++i) {
-            g_amotors[i].ComputePID(g_apid[i]); // effective sample time ~ 130 ms
+            g_amotors[i].ComputePID(g_apid[i]);
         }
-*/
-        SendSensorData(); // ~ 40 ms
+
+        SendSensorData();
     } else {
         if(Serial.available() && Serial.read()==g_chHandshake) {
-            g_bConnected = true;
             OnConnection();
         }
     }
