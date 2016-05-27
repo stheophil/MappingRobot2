@@ -6,7 +6,7 @@ cmake_minimum_required (VERSION 2.6)
 # set(CXX_STANDARD 11)
 
 set(Boost_DEBUG ON)
-find_package(Boost 1.59.0 REQUIRED COMPONENTS system)
+find_package(Boost 1.55.0 REQUIRED COMPONENTS system)
 # find_package(OpenCV REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
@@ -32,4 +32,5 @@ endif()
 target_link_libraries( robot 
 #	${OpenCV_LIBS} 
 	${Boost_LIBRARIES}
+	pthread
 )
