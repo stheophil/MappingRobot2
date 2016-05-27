@@ -6,135 +6,96 @@
 #include <thread>
 
 #include <iostream>
+#include <fstream>
+
 #include <cstring>
 
-#include <unistd.h>			//Used for UART
-#include <fcntl.h>			//Used for UART
-#include <termios.h>		//Used for UART
+#include <boost/asio.hpp>
+#include <boost/range/algorithm/for_each.hpp>
 
-struct serial_device {
-	serial_device(const char* szDevice) 
-		: m_fd(open(szDevice, O_RDWR | O_NOCTTY)) 
-	{
-		// O_NOCTTY - When set and path identifies a terminal device, 
-		// 	open() shall not cause the terminal device to become the controlling terminal for the process.
-		ASSERT(-1 != m_fd);
-		VERIFY(0==tcgetattr(m_fd, &m_ttySaved));
-		
-		termios tty = m_ttySaved;
-		speed_t spd = B230400;
-		VERIFY(0==cfsetospeed(&tty, spd));
-		VERIFY(0==cfsetispeed(&tty, spd));
-
-		cfmakeraw(&tty); // returns void
-
-		tty.c_cflag &= ~CSTOPB;  // send 1 stop bit
-		tty.c_cflag &= ~CRTSCTS; // no HW flow control
-		tty.c_cflag |= CREAD; // enable read
-
-		VERIFY(0==tcsetattr(m_fd, TCSANOW, &tty));
-	}
-
-	template<typename TSend>
-	void write(TSend const& t) noexcept {
-		write(std::addressof(t), sizeof(t));
-	}
-
-	void write(const void* pvData, std::size_t cb) noexcept {
-		VERIFY(cb==::write(m_fd, pvData, cb));
-	}
-
-	template<typename TReceive>
-	TReceive read() noexcept {
-		TReceive receive;
-		unsigned char* pb = reinterpret_cast<unsigned char*>(std::addressof(receive));
-
-		std::size_t cbRead = 0;
-		while(cbRead<sizeof(TReceive)) {
-			int cb = ::read(m_fd, pb, sizeof(TReceive)-cbRead);
-			ASSERT(0<=cb);
-			if(0<cb) {
-				pb+=cb;
-				cbRead+=static_cast<std::size_t>(cb);
-			}
+boost::asio::io_service g_io_service;
+void run_io_service() {
+	while(true) {
+		try {
+			boost::asio::io_service::work work(g_io_service);
+			g_io_service.run();
+		} catch(...) {
+			ASSERT(false);
 		}
-		return receive;
 	}
-
-	~serial_device() {
-		VERIFY(0==tcsetattr(m_fd, TCSANOW, &m_ttySaved));
-		VERIFY(0==close(m_fd));
-	}
-
-private:
-	int m_fd;
-	termios m_ttySaved;
-};
+}
 
 int main(int nArgs, char* aczArgs[]) {
-	// TODO: Reset controller first
-	// TODO: Replace serial_device with boost asio? 
 	// TODO: Setup boost::asio TCP server to send map bitmaps?
-	// OpenCV itself only uses one core, processing single sensor data takes about 0.03 s currently
-	/*
-	auto probotcontroller = robot_new_controller();
-	while(true) {
-		auto start = std::chrono::system_clock::now();
 
-		SSensorData data = {
-			0,
-			0,
-			200,
-			{ 10, 10, 10, 10},
-			ecmdSTOP
-		};
-		SRobotCommand cmd;
-		bool bSend;
-		SPose pose = robot_received_sensor_data(probotcontroller, data, &cmd, &bSend);
-
-		auto end = std::chrono::system_clock::now();
-		std::chrono::duration<double> diff = end-start;
-		std::cout << "(" << pose.x << ", " << pose.y << "): " << diff.count() << " s\n";
-
-		using namespace std::literals;
-		// std::this_thread::sleep_for(1s);
-	}
-	*/
-	if(nArgs<2) {
-		std::cout << "Syntax: robot <ttyDevice>\n";
+	if(nArgs<3) {
+		std::cout << "Syntax: robot <ttyDevice> <logfile>\n";
 		return 1;
 	}
+	
+	std::thread threadIO(run_io_service);
 
 	std::cout << "Opening " << aczArgs[1] << "\n";
-	serial_device serial(aczArgs[1]);
+	boost::asio::serial_port serial(g_io_service, aczArgs[1]);
+	serial.set_option(boost::asio::serial_port::baud_rate(230400));
+	
+	auto SerialWrite = [&](auto cmd) {
+		VERIFYEQUAL(boost::asio::write(serial, boost::asio::buffer(&cmd, sizeof(decltype(cmd)))), sizeof(decltype(cmd)));
+	};
+	
+	std::basic_ofstream<char> ofsLog(aczArgs[2], std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
+	VERIFY(ofsLog.good());
+	
 	std::cout << "Waiting for Arduino\n";
 
 	bool bSentReset = false;
 	while(true) {
-		auto chHandshake = serial.read<char>();
-		std::cout << chHandshake;
+		char chHandshake;
+		VERIFYEQUAL(boost::asio::read(serial, boost::asio::buffer(&chHandshake, sizeof(chHandshake))), sizeof(chHandshake)); // throws boost::system::system_error
+				
 		if(chHandshake==g_chHandshake) {
+			std::cout << "Received Handshake\n";
 			break;
 		} else if(!bSentReset) {
+			std::cout << "Send Reset\n";
 			bSentReset = true;
-			serial.write(SRobotCommand::reset());
+			
+			SerialWrite(SRobotCommand::reset()); // throws boost::system:::system_error
 		}
 	}
-
+	
 	std::cout << "\n Send Handshake\n";
-	serial.write(g_chHandshake);
-
+	SerialWrite(g_chHandshake); // throws boost::system:::system_error
+	
 	auto start = std::chrono::system_clock::now();
 	while(true) {
-		SSensorData data = serial.read<SSensorData>();
+		SSensorData data;
+		VERIFYEQUAL(boost::asio::read(serial, boost::asio::buffer(&data, sizeof(SSensorData))), sizeof(SSensorData)); // throws boost::system::system_error
 		
 		auto end = std::chrono::system_clock::now();
 		std::chrono::duration<double> diff = end-start;
 
-		std::cout << diff.count() << ": " << data.m_nYaw << " "
+		ofsLog << diff.count() << ": " 
+			<< data.m_nYaw << " "
 			<< data.m_nAngle << " "
-			<< data.m_nDistance 
-			<< std::endl;
+			<< data.m_nDistance;
+			
+		boost::for_each(data.m_anEncoderTicks, [&](short nEncoderTick) {
+			ofsLog << " " << nEncoderTick; 
+		});
+		ofsLog << '\n';
+		
+		switch(std::cin.get()) {
+			case 'w': SerialWrite(SRobotCommand::forward()); break;
+			case 'a': SerialWrite(SRobotCommand::left_turn()); break;
+			case 's': SerialWrite(SRobotCommand::backward()); break;
+			case 'd': SerialWrite(SRobotCommand::right_turn()); break;
+			case 'x': SerialWrite(SRobotCommand::stop()); goto done;
+		}
 	}
+	
+done:
+	g_io_service.stop();
+	threadIO.join();
 	return 0;
 }
