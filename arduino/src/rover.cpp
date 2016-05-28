@@ -250,6 +250,8 @@ void setup()
     OnDisconnection();
 }
 
+void HandleCommand(SRobotCommand const& cmd);
+
 bool g_bConnected = false;
 void OnConnection() {
     blink(200, 3);
@@ -268,14 +270,20 @@ void OnDisconnection() {
     digitalWrite(RELAY_PIN, HIGH);
 }
 
-std::pair<SRobotCommand, bool> ReadCommand() {
-    SRobotCommand cmd;
-    char* pcmd = (char*)&cmd;
+struct SReadCommand {
+    SRobotCommand m_cmd;
+    bool m_bValid;
+};
+
+SReadCommand ReadCommand() {
+    SReadCommand readcmd;
+    char* pcmd = (char*)&readcmd.m_cmd;
     char* pcmdEnd = pcmd+sizeof(SRobotCommand);
     for(; pcmd<pcmdEnd && 0<Serial.available(); ++pcmd) {
         *pcmd = Serial.read();
     }
-    return std::make_pair(cmd, pcmd==pcmdEnd);
+    readcmd.m_bValid = pcmd==pcmdEnd;
+    return readcmd;
 }
 
 unsigned long g_nLastCommand = 0; // time in millis() of last command
@@ -354,9 +362,9 @@ void loop() {
         g_servo.loop();
         
         if(0<Serial.available()) {
-            auto paircmdb = ReadCommand();
-            if(paircmdb.second) {
-                HandleCommand(paircmdb.first);
+            auto readcmd = ReadCommand();
+            if(readcmd.m_bValid) {
+                HandleCommand(readcmd.m_cmd);
                 if(!g_bConnected) return;
             }
         } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
@@ -372,8 +380,8 @@ void loop() {
 
         SendSensorData();
     } else {
-        auto paircmdb = ReadCommand();
-        if(paircmdb.second && paircmdb.m_ecmd==ecmdCONNECT) {
+        auto readcmd = ReadCommand();
+        if(readcmd.m_bValid && readcmd.m_cmd.m_ecmd==ecmdCONNECT) {
             OnConnection();
         }
     }
