@@ -5,6 +5,7 @@
 #include <chrono>
 #include <future>
 #include <thread>
+using namespace std::chrono_literals;
 
 #include <iostream>
 #include <fstream>
@@ -13,6 +14,25 @@
 
 #include <boost/asio.hpp>
 #include <boost/range/algorithm/for_each.hpp>
+
+struct SConfigureStdin {
+	termios m_termOld;
+	
+	SConfigureStdin() {
+		tcgetattr( STDIN_FILENO, &m_termOld);
+    	termios termNew = m_termOld;
+		
+		// http://stackoverflow.com/questions/1798511/how-to-avoid-press-enter-with-any-getchar?lq=1
+    	// ICANON normally takes care that one line at a time will be processed
+    	// that means it will return if it sees a "\n" or an EOF or an EOL
+    	termNew.c_lflag &= ~(ICANON | ECHO);
+    	tcsetattr( STDIN_FILENO, TCSANOW, &termNew);
+	}
+    
+	~SConfigureStdin() {
+    	tcsetattr( STDIN_FILENO, TCSANOW, &m_termOld);	
+	}
+};
 
 int main(int nArgs, char* aczArgs[]) {
 	// TODO: Setup boost::asio TCP server to send map bitmaps?
@@ -39,19 +59,20 @@ int main(int nArgs, char* aczArgs[]) {
 	SendCommand(SRobotCommand::reset()); // throws boost::system:::system_error
     std::this_thread::sleep_for(1s);
 	std::cout << "Connecting to Controller\n";
-	SerialWrite(SRobotCommand::connect()); // throws boost::system:::system_error
+	SendCommand(SRobotCommand::connect()); // throws boost::system:::system_error
 	
 	std::atomic<bool> bRunning{true};
 	
 	// Command loop
 	auto f = std::async([&](){
+		SConfigureStdin s;
 		while(true) {
-			switch(std::cin.get()) {
-				case 'w': SerialWrite(SRobotCommand::forward()); break;
-				case 'a': SerialWrite(SRobotCommand::left_turn()); break;
-				case 's': SerialWrite(SRobotCommand::backward()); break;
-				case 'd': SerialWrite(SRobotCommand::right_turn()); break;
-				case 'x': SerialWrite(SRobotCommand::stop()); bRunning = false; return;
+			switch(std::getchar()) {
+				case 'w': SendCommand(SRobotCommand::forward()); break;
+				case 'a': SendCommand(SRobotCommand::left_turn()); break;
+				case 's': SendCommand(SRobotCommand::backward()); break;
+				case 'd': SendCommand(SRobotCommand::right_turn()); break;
+				case 'x': SendCommand(SRobotCommand::stop()); bRunning = false; return;
 			}	
 		}		
 	});

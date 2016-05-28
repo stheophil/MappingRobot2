@@ -26,7 +26,7 @@ struct SRobotCommand {
     inline static SRobotCommand left_turn() { return {ecmdMOVE, -c_nMaxFwdSpeed, c_nMaxFwdSpeed}; }
     inline static SRobotCommand right_turn() { return {ecmdMOVE, c_nMaxFwdSpeed, -c_nMaxFwdSpeed}; }
     
-    inline static SRobotCommand reset() { return {ecmdCONNECT, 0, 0}; }
+    inline static SRobotCommand connect() { return {ecmdCONNECT, 0, 0}; }
     inline static SRobotCommand reset() { return {ecmdRESET, 0, 0}; }
     inline static SRobotCommand stop() { return {ecmdMOVE, 0, 0}; }
 };
