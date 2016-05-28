@@ -23,11 +23,7 @@ add_executable(robot
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 
-if(APPLE)
-   target_compile_options( robot PRIVATE --std=c++1y PRIVATE -stdlib=libc++)
-elseif(UNIX)
-	target_compile_options( robot PRIVATE --std=c++1y PRIVATE -stdlib=libstdc++)
-endif()
+target_compile_options( robot PRIVATE --std=c++1y)
 
 target_link_libraries( robot 
 #	${OpenCV_LIBS} 

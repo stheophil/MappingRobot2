@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <future>
+#include <thread>
 
 #include <iostream>
 #include <fstream>
@@ -26,7 +27,7 @@ int main(int nArgs, char* aczArgs[]) {
 	boost::asio::serial_port serial(io_service, aczArgs[1]);
 	serial.set_option(boost::asio::serial_port::baud_rate(230400));
 	
-	auto SerialWrite = [&](auto cmd) {
+	auto SendCommand = [&](SRobotCommand const& cmd) {
 		VERIFYEQUAL(boost::asio::write(serial, boost::asio::buffer(&cmd, sizeof(decltype(cmd)))), sizeof(decltype(cmd)));
 	};
 	
@@ -34,28 +35,15 @@ int main(int nArgs, char* aczArgs[]) {
 	std::basic_ofstream<char> ofsLog(aczArgs[2], std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
 	VERIFY(ofsLog.good());
 	
-	std::cout << "Waiting for Arduino\n";
-
-	bool bSentReset = false;
-	while(true) {
-		char chHandshake;
-		VERIFYEQUAL(boost::asio::read(serial, boost::asio::buffer(&chHandshake, sizeof(chHandshake))), sizeof(chHandshake)); // throws boost::system::system_error
-				
-		if(chHandshake==g_chHandshake) {
-			std::cout << "Received Handshake\n";
-			break;
-		} else if(!bSentReset) {
-			std::cout << "Send Reset\n";
-			bSentReset = true;
-			
-			SerialWrite(SRobotCommand::reset()); // throws boost::system:::system_error
-		}
-	}
-	
-	std::cout << "\n Send Handshake\n";
-	SerialWrite(g_chHandshake); // throws boost::system:::system_error
+	std::cout << "Resetting Controller\n";
+	SendCommand(SRobotCommand::reset()); // throws boost::system:::system_error
+    std::this_thread::sleep_for(1s);
+	std::cout << "Connecting to Controller\n";
+	SerialWrite(SRobotCommand::connect()); // throws boost::system:::system_error
 	
 	std::atomic<bool> bRunning{true};
+	
+	// Command loop
 	auto f = std::async([&](){
 		while(true) {
 			switch(std::cin.get()) {
@@ -68,6 +56,7 @@ int main(int nArgs, char* aczArgs[]) {
 		}		
 	});
 	
+	// Sensor loop
 	auto start = std::chrono::system_clock::now();
 	while(bRunning) {
 		SSensorData data;
@@ -86,7 +75,5 @@ int main(int nArgs, char* aczArgs[]) {
 		});
 		ofsLog << '\n';
 	}
-	
-done:
 	return 0;
 }

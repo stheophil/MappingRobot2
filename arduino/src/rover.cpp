@@ -256,13 +256,26 @@ void OnConnection() {
     g_bConnected = true;
     // Activate motor controller
     digitalWrite(RELAY_PIN, LOW);
+    
+    HandleCommand(SRobotCommand::stop()); // reinitializes motor state
 }
 
 void OnDisconnection() {
+    HandleCommand(SRobotCommand::stop()); // reinitializes motor state
+    
     g_bConnected = false;
     // Deactivate motor controller
     digitalWrite(RELAY_PIN, HIGH);
-    Serial.print(g_chHandshake);
+}
+
+std::pair<SRobotCommand, bool> ReadCommand() {
+    SRobotCommand cmd;
+    char* pcmd = (char*)&cmd;
+    char* pcmdEnd = pcmd+sizeof(SRobotCommand);
+    for(; pcmd<pcmdEnd && 0<Serial.available(); ++pcmd) {
+        *pcmd = Serial.read();
+    }
+    return std::make_pair(cmd, pcmd==pcmdEnd);
 }
 
 unsigned long g_nLastCommand = 0; // time in millis() of last command
@@ -322,7 +335,8 @@ void SendSensorData() {
 
     SSensorData data = {
         g_nYaw,
-        nAngle, nDistance,
+        nAngle, 
+        nDistance,
         g_amotors[0].Pop(),
         g_amotors[1].Pop(),
         g_amotors[2].Pop(),
@@ -333,36 +347,33 @@ void SendSensorData() {
 }
 
 static const unsigned long c_nTIMETOSTOP = 200; // ms
+static const unsigned long c_nTIMETODISCONNECT = 1000; // ms
 
 void loop() {
     if(g_bConnected) {
         g_servo.loop();
         
         if(0<Serial.available()) {
-            SRobotCommand cmd;
-            char* pcmd = (char*)&cmd;
-            char* pcmdEnd = pcmd+sizeof(SRobotCommand);
-            for(; pcmd<pcmdEnd && 0<Serial.available(); ++pcmd) {
-                *pcmd = Serial.read();
+            auto paircmdb = ReadCommand();
+            if(paircmdb.second) {
+                HandleCommand(paircmdb.first);
+                if(!g_bConnected) return;
             }
-            if(pcmd==pcmdEnd) {
-                HandleCommand(cmd);
-            }             
-            // else {
-            //     Serial.print("Incomplete Command. Read ");
-            //     Serial.print(pcmd - (char*)&cmd);
-            //     Serial.println(" bytes");
-            // }
         } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
             HandleCommand(SRobotCommand::stop());
+        } else if(c_nTIMETODISCONNECT < millis()-g_nLastCommand) {
+            OnDisconnection(); 
+            return;
         }
+        
         for(unsigned int i=0; i<countof(g_amotors); ++i) {
             g_amotors[i].ComputePID(g_apid[i]);
         }
 
         SendSensorData();
     } else {
-        if(Serial.available() && Serial.read()==g_chHandshake) {
+        auto paircmdb = ReadCommand();
+        if(paircmdb.second && paircmdb.m_ecmd==ecmdCONNECT) {
             OnConnection();
         }
     }
