@@ -68,7 +68,7 @@ int main(int nArgs, char* aczArgs[]) {
 		std::cout << "Waiting for commands\n";
 		SConfigureStdin s;
 		while(true) {
-			switch(static_cast<char>(std::getchar()) {
+			switch(static_cast<char>(std::getchar())) {
 				case 'w': SendCommand(SRobotCommand::forward()); break;
 				case 'a': SendCommand(SRobotCommand::left_turn()); break;
 				case 's': SendCommand(SRobotCommand::backward()); break;

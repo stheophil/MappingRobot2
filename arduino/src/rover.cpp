@@ -288,6 +288,9 @@ SReadCommand ReadCommand() {
 
 void InternalHandleCommand(SRobotCommand const& cmd) {
     switch(cmd.m_ecmd) {
+	case ecmdCONNECT:
+	    OnConnection();
+	    break;
         case ecmdRESET: 
             OnDisconnection();
             break;
@@ -359,7 +362,7 @@ void SendSensorData() {
 }
 
 static const unsigned long c_nTIMETOSTOP = 200; // ms
-static const unsigned long c_nTIMETODISCONNECT = 1000; // ms
+static const unsigned long c_nTIMETODISCONNECT = 60000; // ms
 
 void loop() {
     if(g_bConnected) {
@@ -371,12 +374,12 @@ void loop() {
                 HandleCommand(readcmd.m_cmd);
                 if(!g_bConnected) return;
             }
-        } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
-            InternalHandleCommand(SRobotCommand::stop());
         } else if(c_nTIMETODISCONNECT < millis()-g_nLastCommand) {
             OnDisconnection(); 
             return;
-        }
+        } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
+            InternalHandleCommand(SRobotCommand::stop());
+	}
         
         for(unsigned int i=0; i<countof(g_amotors); ++i) {
             g_amotors[i].ComputePID(g_apid[i]);
@@ -386,7 +389,7 @@ void loop() {
     } else {
         auto readcmd = ReadCommand();
         if(readcmd.m_bValid && readcmd.m_cmd.m_ecmd==ecmdCONNECT) {
-            OnConnection();
+            HandleCommand(readcmd.m_cmd);
         }
     }
 }
