@@ -6,9 +6,9 @@
 #include <stdlib.h>
 
 enum ECommand : short {
-    ecmdCONNECT,
-    ecmdRESET,
-    ecmdMOVE
+    ecmdCONNECT = 10,
+    ecmdRESET = 11,
+    ecmdMOVE = 12
 };
 
 // Speeds are given in same units as SRobotCommand.m_nSpeed*

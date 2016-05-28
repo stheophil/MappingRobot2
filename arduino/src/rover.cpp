@@ -250,7 +250,7 @@ void setup()
     OnDisconnection();
 }
 
-void HandleCommand(SRobotCommand const& cmd);
+void InternalHandleCommand(SRobotCommand const& cmd);
 
 bool g_bConnected = false;
 void OnConnection() {
@@ -259,11 +259,11 @@ void OnConnection() {
     // Activate motor controller
     digitalWrite(RELAY_PIN, LOW);
     
-    HandleCommand(SRobotCommand::stop()); // reinitializes motor state
+    InternalHandleCommand(SRobotCommand::stop()); // reinitializes motor state
 }
 
 void OnDisconnection() {
-    HandleCommand(SRobotCommand::stop()); // reinitializes motor state
+    InternalHandleCommand(SRobotCommand::stop()); // reinitializes motor state
     
     g_bConnected = false;
     // Deactivate motor controller
@@ -286,9 +286,7 @@ SReadCommand ReadCommand() {
     return readcmd;
 }
 
-unsigned long g_nLastCommand = 0; // time in millis() of last command
-void HandleCommand(SRobotCommand const& cmd) {
-    g_nLastCommand = millis();
+void InternalHandleCommand(SRobotCommand const& cmd) {
     switch(cmd.m_ecmd) {
         case ecmdRESET: 
             OnDisconnection();
@@ -319,6 +317,12 @@ void HandleCommand(SRobotCommand const& cmd) {
             }
         }
     }
+}
+
+unsigned long g_nLastCommand = 0; // time in millis() of last command
+void HandleCommand(SRobotCommand const& cmd) {
+    g_nLastCommand = millis();
+    InternalHandleCommand(cmd);
 }
 
 void SendSensorData() {
@@ -368,7 +372,7 @@ void loop() {
                 if(!g_bConnected) return;
             }
         } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
-            HandleCommand(SRobotCommand::stop());
+            InternalHandleCommand(SRobotCommand::stop());
         } else if(c_nTIMETODISCONNECT < millis()-g_nLastCommand) {
             OnDisconnection(); 
             return;
