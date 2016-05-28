@@ -64,16 +64,17 @@ int main(int nArgs, char* aczArgs[]) {
 	std::atomic<bool> bRunning{true};
 	
 	// Command loop
-	auto f = std::async([&](){
+	auto f = std::async(std::launch::async, [&]() {
+		std::cout << "Waiting for commands\n";
 		SConfigureStdin s;
 		while(true) {
-			switch(std::getchar()) {
+			switch(static_cast<char>(std::getchar()) {
 				case 'w': SendCommand(SRobotCommand::forward()); break;
 				case 'a': SendCommand(SRobotCommand::left_turn()); break;
 				case 's': SendCommand(SRobotCommand::backward()); break;
 				case 'd': SendCommand(SRobotCommand::right_turn()); break;
-				case 'x': SendCommand(SRobotCommand::stop()); bRunning = false; return;
-			}	
+				case 'x': SendCommand(SRobotCommand::reset()); bRunning = false; return;
+			}
 		}		
 	});
 	
