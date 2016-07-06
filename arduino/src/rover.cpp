@@ -136,7 +136,6 @@ void (*c_afnInterrupts[4])() = {
 
 Adafruit_BNO055 g_bno = Adafruit_BNO055(55);
 bool g_bBNO = false;
-unsigned short g_nYaw = 0; // in degrees
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -331,12 +330,6 @@ void HandleCommand(SRobotCommand const& cmd) {
 void SendSensorData() {
     // TODO: Transmit current or make emergency stop if motor current too high
     // TODO: Limit number of transmissions, once every 50 ms?
-    
-    if(g_bBNO) {
-        sensors_event_t event; 
-        g_bno.getEvent(&event);
-        g_nYaw = (short)round(event.orientation.x * 100);   
-    }
 
 #ifdef SERIAL_TRACE
     Serial.println(g_nYaw);
@@ -345,18 +338,24 @@ void SendSensorData() {
     Serial.print("\t");
     Serial.println(g_lidar.distance());
 #else
-    int nDistance = g_lidar.distance(); // in cm
-    int nAngle = g_servo.Angle();
-
     SSensorData data = {
-        g_nYaw,
-        nAngle, 
-        nDistance,
+        USHRT_MAX, 
+        0, 0, 0, 0,
+        g_servo.Angle(), 
+        g_lidar.distance(), // in cm,
         g_amotors[0].Pop(),
         g_amotors[1].Pop(),
         g_amotors[2].Pop(),
         g_amotors[3].Pop()
     };
+
+    if(g_bBNO) {
+        sensors_event_t event; 
+        g_bno.getEvent(&event);
+        data.m_nYaw = static_cast<unsigned short>(constrain(round(event.orientation.x * 100), 0, 36000)); 
+        g_bno.getCalibration(&data.m_nCalibSystem, &data.m_nCalibGyro, &data.m_nCalibAccel, &data.m_nCalibMag);
+    }
+
     Serial.write((byte*)&data, sizeof(data));
 #endif
 }
@@ -379,7 +378,7 @@ void loop() {
             return;
         } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
             InternalHandleCommand(SRobotCommand::stop());
-	}
+	    }
         
         for(unsigned int i=0; i<countof(g_amotors); ++i) {
             g_amotors[i].ComputePID(g_apid[i]);

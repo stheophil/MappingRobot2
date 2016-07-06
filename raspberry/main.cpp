@@ -58,13 +58,22 @@ int main(int nArgs, char* aczArgs[]) {
 	std::cout << "Resetting Controller\n";
 	SendCommand(SRobotCommand::reset()); // throws boost::system:::system_error
     std::this_thread::sleep_for(1s);
+
 	std::cout << "Connecting to Controller\n";
 	SendCommand(SRobotCommand::connect()); // throws boost::system:::system_error
 	
 	std::atomic<bool> bRunning{true};
-	
+
+	enum ECalibration {
+		ecalibrationUNKNOWN,
+		ecalibrationINPROGRESS,
+		ecalibrationWAITFORUSER,
+		ecalibrationDONE
+	};
+	std::atomic<ECalibration> ecalibration{ecalibrationUNKNOWN};
+
 	// Command loop
-	auto f = std::async(std::launch::async, [&]() {
+	auto f = std::async(std::launch::async, [&] {
 		std::cout << "Waiting for commands\n";
 		SConfigureStdin s;
 		while(true) {
@@ -74,28 +83,62 @@ int main(int nArgs, char* aczArgs[]) {
 				case 's': SendCommand(SRobotCommand::backward()); break;
 				case 'd': SendCommand(SRobotCommand::right_turn()); break;
 				case 'x': SendCommand(SRobotCommand::reset()); bRunning = false; return;
+				case 'c': if(ecalibrationWAITFORUSER==ecalibration) ecalibration=ecalibrationDONE; break;
 			}
-		}		
+		}
 	});
 	
 	// Sensor loop
-	auto start = std::chrono::system_clock::now();
+	auto tpStart = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> tpLastMessage;
 	while(bRunning) {
+		// TODO: This needs a time out!
 		SSensorData data;
 		VERIFYEQUAL(boost::asio::read(serial, boost::asio::buffer(&data, sizeof(SSensorData))), sizeof(SSensorData)); // throws boost::system::system_error
 		
-		auto end = std::chrono::system_clock::now();
-		std::chrono::duration<double> diff = end-start;
+		switch(ecalibration) {
+			case ecalibrationUNKNOWN:
+				if(data.m_nYaw!=USHRT_MAX) {
+					std::cout << "To calibrate accelerometer, move robot in an 8." << std::endl;
+				} else {
+					ecalibration = ecalibrationDONE; // No accelerometer, nothing to calibrate
+				}
+				break;
+			case ecalibrationINPROGRESS: {
+				auto tpNow = std::chrono::system_clock::now();
+				std::chrono::duration<double> durDiff = tpNow-tpLastMessage;
+				if(5.0 < durDiff.count()) {					
+					std::cout << "Calibration values: " << data.m_nCalibSystem << ", " 
+						<< data.m_nCalibGyro << ", " 
+						<< data.m_nCalibAccel << ", "
+						<< data.m_nCalibMag << std::endl;
+					tpLastMessage = tpNow;
+				}
+				if(3==data.m_nCalibSystem) {
+					std::cout << "Calibration succeeded. Put robot on the floor and press c." << std::endl;
+					ecalibration = ecalibrationWAITFORUSER;
+				}
+				break;
+			}
+			case ecalibrationWAITFORUSER: {
+				break; // do nothing until user presses button
+			}
+			case ecalibrationDONE:
+			{
+				auto tpEnd = std::chrono::system_clock::now();
+				std::chrono::duration<double> durDiff = tpEnd-tpStart;
 
-		ofsLog << diff.count() << ": " 
-			<< data.m_nYaw << " "
-			<< data.m_nAngle << " "
-			<< data.m_nDistance;
-			
-		boost::for_each(data.m_anEncoderTicks, [&](short nEncoderTick) {
-			ofsLog << " " << nEncoderTick; 
-		});
-		ofsLog << '\n';
+				ofsLog << durDiff.count() << ";" 
+					<< data.m_nYaw << ";"
+					<< data.m_nAngle << ";"
+					<< data.m_nDistance;
+					
+				boost::for_each(data.m_anEncoderTicks, [&](short nEncoderTick) {
+					ofsLog << ";" << nEncoderTick; 
+				});
+				ofsLog << '\n';
+			}
+		}
 	}
 	return 0;
 }
