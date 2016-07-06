@@ -83,7 +83,7 @@ int main(int nArgs, char* aczArgs[]) {
 				case 's': SendCommand(SRobotCommand::backward()); break;
 				case 'd': SendCommand(SRobotCommand::right_turn()); break;
 				case 'x': SendCommand(SRobotCommand::reset()); bRunning = false; return;
-				case 'c': if(ecalibrationWAITFORUSER==ecalibration) ecalibration=ecalibrationDONE; break;
+				case 'c': std::cout << "C!" << std::endl; if(ecalibrationWAITFORUSER==ecalibration) ecalibration=ecalibrationDONE; break;
 			}
 		}
 	});
@@ -100,6 +100,7 @@ int main(int nArgs, char* aczArgs[]) {
 			case ecalibrationUNKNOWN:
 				if(data.m_nYaw!=USHRT_MAX) {
 					std::cout << "To calibrate accelerometer, move robot in an 8." << std::endl;
+					ecalibration = ecalibrationINPROGRESS;
 				} else {
 					ecalibration = ecalibrationDONE; // No accelerometer, nothing to calibrate
 				}
@@ -108,10 +109,10 @@ int main(int nArgs, char* aczArgs[]) {
 				auto tpNow = std::chrono::system_clock::now();
 				std::chrono::duration<double> durDiff = tpNow-tpLastMessage;
 				if(5.0 < durDiff.count()) {					
-					std::cout << "Calibration values: " << data.m_nCalibSystem << ", " 
-						<< data.m_nCalibGyro << ", " 
-						<< data.m_nCalibAccel << ", "
-						<< data.m_nCalibMag << std::endl;
+					std::cout << "Calibration values: " << static_cast<int>(data.m_nCalibSystem) << ", " 
+						<< static_cast<int>(data.m_nCalibGyro) << ", " 
+						<< static_cast<int>(data.m_nCalibAccel) << ", "
+						<< static_cast<int>(data.m_nCalibMag) << std::endl;
 					tpLastMessage = tpNow;
 				}
 				if(3==data.m_nCalibSystem) {
