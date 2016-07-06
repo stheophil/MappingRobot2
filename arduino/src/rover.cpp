@@ -339,7 +339,7 @@ void SendSensorData() {
     Serial.println(g_lidar.distance());
 #else
     SSensorData data = {
-        USHRT_MAX, 
+        UINT16_MAX, 
         0, 0, 0, 0,
         g_servo.Angle(), 
         g_lidar.distance(), // in cm,

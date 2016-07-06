@@ -4,6 +4,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 enum ECommand : short {
     ecmdCONNECT = 10,
