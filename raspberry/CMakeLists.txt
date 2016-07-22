@@ -23,7 +23,7 @@ add_executable(robot
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 
-target_compile_options( robot PRIVATE --std=c++1y)
+target_compile_options(robot PRIVATE --std=c++1y -Wall -Wno-unused-local-typedef)
 
 target_link_libraries( robot 
 #	${OpenCV_LIBS} 

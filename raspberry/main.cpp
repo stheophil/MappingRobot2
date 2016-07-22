@@ -5,6 +5,8 @@
 #include <chrono>
 #include <future>
 #include <thread>
+#include <functional>
+
 using namespace std::chrono_literals;
 
 #include <iostream>
@@ -15,6 +17,8 @@ using namespace std::chrono_literals;
 #include <boost/asio.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 #include <boost/program_options.hpp>
+#include <boost/optional.hpp>
+#include <boost/pool/object_pool.hpp>
 
 struct SConfigureStdin {
 	termios m_termOld;
@@ -42,11 +46,15 @@ enum ECalibration {
 	ecalibrationDONE
 };
 
+using FOnSensorData = std::function< boost::optional<SRobotCommand>(SSensorData const&) >;
+
 struct SRobotConnection : SConfigureStdin {
-	SRobotConnection(boost::asio::io_service& io_service, std::string const& strPort, bool bManual)
-		: m_stdin(io_service, ::dup(STDIN_FILENO))
+	SRobotConnection(boost::asio::io_service& io_service, std::string const& strPort, bool bManual, FOnSensorData func)
+		: m_io_service(io_service)
+        , m_stdin(io_service, ::dup(STDIN_FILENO))
 		, m_serial(io_service, strPort) // throws boost::system::system_error
-		, m_timer(io_service, boost::posix_time::seconds(60))
+        , m_timer(io_service, boost::posix_time::seconds(60))
+        , m_funcOnSensorData(func)
         , m_bManual(bManual)
 	{
 		wait_for_command();
@@ -159,8 +167,9 @@ struct SRobotConnection : SConfigureStdin {
 					case ecalibrationWAITFORUSER: {
 						break; // do nothing until user presses button
 					}
-					case ecalibrationDONE:
-					{
+					case ecalibrationDONE: {
+                        m_funcOnSensorData(m_sensordata);
+                        break;
 					}
 				}
 
@@ -168,7 +177,21 @@ struct SRobotConnection : SConfigureStdin {
     		}); 
     }
 
-    void send_command(SRobotCommand const& rcmd) {}
+    void send_command(SRobotCommand const& rcmd) {
+    	// send_command *may* be called from another than m_io_service's thread
+    	// dispatch to correct thread, copying rcmd
+        m_io_service.dispatch([this, rcmd] {
+            auto prcmd = m_poolrcmd.construct(rcmd);
+            boost::asio::async_write(
+                m_serial,
+				boost::asio::buffer(prcmd, sizeof(SRobotCommand)),
+				[this, prcmd](boost::system::error_code const& ec, std::size_t length) {
+					ASSERT(!ec);
+					ASSERT(length==sizeof(SRobotCommand));
+					m_poolrcmd.free(prcmd);
+				});
+        });
+    }
 
 private:
 	void Shutdown() {
@@ -178,6 +201,7 @@ private:
 	}
 
 	bool m_bShutdown = false;
+    boost::asio::io_service& m_io_service;
 
   	boost::asio::posix::stream_descriptor m_stdin;
   	char m_ch;
@@ -187,7 +211,10 @@ private:
     std::chrono::system_clock::time_point m_tpLastMessage;
     
 	SSensorData m_sensordata;
+    std::function< boost::optional<SRobotCommand>(SSensorData const&) > m_funcOnSensorData;
 
+    boost::object_pool<SRobotCommand> m_poolrcmd;
+    
     bool const m_bManual;
 	ECalibration m_ecalibration = ecalibrationUNKNOWN;
 };
@@ -236,28 +263,29 @@ int main(int nArgs, char* aczArgs[]) {
 			}
 
 			auto tpStart = std::chrono::system_clock::now();
-			SRobotConnection rc(io_service, strPort, bManual); 
-				// [&](SSensorData const& data) {
-				// 	if(!strLog.empty()) {
-				// 		auto tpEnd = std::chrono::system_clock::now();
-				// 		std::chrono::duration<double> durDiff = tpEnd-tpStart;
+			SRobotConnection rc(io_service, strPort, bManual,
+				 [&](SSensorData const& data) {
+				 	if(!strLog.empty()) {
+				 		auto tpEnd = std::chrono::system_clock::now();
+				 		std::chrono::duration<double> durDiff = tpEnd-tpStart;
 
-				// 		ofsLog << durDiff.count() << ";" 
-				// 			<< data.m_nYaw << ";"
-				// 			<< data.m_nAngle << ";"
-				// 			<< data.m_nDistance;
+				 		ofsLog << durDiff.count() << ";" 
+				 			<< data.m_nYaw << ";"
+				 			<< data.m_nAngle << ";"
+				 			<< data.m_nDistance;
 							
-				// 		boost::for_each(data.m_anEncoderTicks, [&](short nEncoderTick) {
-				// 			ofsLog << ";" << nEncoderTick; 
-				// 		});
-				// 		ofsLog << '\n';
-				// 	}
+				 		boost::for_each(data.m_anEncoderTicks, [&](short nEncoderTick) {
+				 			ofsLog << ";" << nEncoderTick; 
+				 		});
+				 		ofsLog << '\n';
+				 	}
 
-				// 	// TODO: Pass sensordata to robot controller, let robot controller queue sensor data
-				// 	// if necessary
-				// 	// TODO: if(!bManual) return controller's command to robot
-
-				// }); // throws boost::system:::system_error
+				 	// TODO: Pass sensordata to robot controller, let robot controller queue sensor data
+				 	// if necessary
+				 	// TODO: if(!bManual) return controller's command to robot
+                     
+                    return boost::none;
+				 }); // throws boost::system:::system_error
 			io_service.run();
 		} catch(boost::system::system_error const& s) {
 			std::cerr << s.what();
