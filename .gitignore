@@ -5,6 +5,7 @@ CMakeFiles
 raspberry/Makefile
 cmake_install.cmake
 install_manifest.txt
+.vscode
 
 # arduino-mk
 build-mega2560
