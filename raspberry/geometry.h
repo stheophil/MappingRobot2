@@ -62,7 +62,8 @@ namespace rbt {
     
     template<typename T>
     struct size :
-        boost::multiplicative2<size<T>, T>
+        boost::additive<size<T>,
+        boost::multiplicative2<size<T>, T>>
     {
         T x;
         T y;
@@ -79,8 +80,11 @@ namespace rbt {
         
         static size<T> fromAngleAndDistance(double fYaw, double fDistance);
     
+        size<T>& operator+=(size<T> const& sz);
+        size<T>& operator-=(size<T> const& sz);
         size<T>& operator*=(T t);
         size<T>& operator/=(T t);
+
         
         T operator*(size<T> const& rhs) const;
         
@@ -116,6 +120,16 @@ namespace rbt {
         interval(T _begin, T _end) : begin(_begin), end(_end) {}
         
         interval<T>& operator|=(T const& t);
+    };
+
+    struct pose {
+        point<double> m_pt;
+        double m_fYaw;
+
+        pose() = default;
+        pose(point<double> const& pt, double fYaw)
+            : m_pt(pt), m_fYaw(fYaw)
+        {}
     };
 
     template<typename T>
@@ -163,10 +177,23 @@ namespace rbt {
     
     template<typename T>
     size<T> size<T>::fromAngleAndDistance(double fYaw, double fDistance) {
-        return size<T>(fDistance * std::cos(fYaw),
-                       fDistance * std::sin(fYaw));
+        return size<T>(size<double>(fDistance, 0).rotated(fYaw));
     }
     
+    template<typename T>
+    size<T>& size<T>::operator+=(size<T> const& sz) {
+        x += sz.x;
+        y += sz.y;
+        return *this;
+    }
+    
+    template<typename T>
+    size<T>& size<T>::operator-=(size<T> const& sz) {
+        x -= sz.x;
+        y -= sz.y;
+        return *this;
+    }
+
     template<typename T>
     size<T>& size<T>::operator*=(T t) {
         x *= t;

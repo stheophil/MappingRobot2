@@ -34,7 +34,6 @@ struct SRobotCommand {
 
 static_assert(sizeof(SRobotCommand)==6, "");
 
-
 struct SSensorData { // must be < 64 bytes
     unsigned short m_nYaw; // in degrees x 100 (0, 359) both inclusive, USHRT_MAX -> no IMU
     uint8_t m_nCalibSystem; // calibration data (0, 3) - 0 is uncalibrated
@@ -45,18 +44,4 @@ struct SSensorData { // must be < 64 bytes
     short m_nDistance; // lidar distance in cm, in lidar frame of reference
     short m_anEncoderTicks[4]; // front left, front right, back left, back right
 };
-
-// Robot configuration
-const int c_nRobotWidth = 30; // cm
-const int c_nRobotHeight = 30; // cm
-const int c_nWheelRadius = 6; // cm
-
-// Offset of robot center to lidar center as x, y coordinates
-// y-axis points into direction of robot front
-const int c_ptLidarOffset[] = {0, 7}; 
-
-inline double encoderTicksToCm(short nTicks) { // Note: Formula depends on wheel encoders
-    return nTicks * 6.0 * M_PI * c_nWheelRadius / 1000.0;
-}
-
 #endif

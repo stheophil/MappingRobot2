@@ -1,6 +1,6 @@
 #include "error_handling.h"
 #include "rover.h"
-// #include "robot_controller_c.h"
+#include "robot_controller.h"
 
 #include <chrono>
 #include <future>
@@ -15,10 +15,13 @@ using namespace std::chrono_literals;
 #include <cstring>
 
 #include <boost/asio.hpp>
+#include <boost/algorithm/cxx11/all_of.hpp>
 #include <boost/range/algorithm/for_each.hpp>
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
 #include <boost/pool/object_pool.hpp>
+
+#include "opencv2/opencv.hpp"
 
 struct SConfigureStdin {
 	termios m_termOld;
@@ -219,6 +222,7 @@ private:
 	ECalibration m_ecalibration = ecalibrationUNKNOWN;
 };
 
+constexpr char c_szHELP[] = "help";
 constexpr char c_szPORT[] = "port";
 constexpr char c_szLOG[] = "log";
 constexpr char c_szMANUAL[] = "manual";
@@ -229,20 +233,52 @@ int main(int nArgs, char* aczArgs[]) {
 
 	po::options_description optdesc("Allowed options");
 	optdesc.add_options()
-	    ("help", "Print help message")
+	    (c_szHELP, "Print help message")
 	    (c_szPORT, po::value<std::string>(), "The serial port that is connected to the robot.")
 	    (c_szLOG, po::value<std::string>(), "Log file")
 	    (c_szMANUAL, "Control robot manually")
-	    (c_szINPUT, po::value<std::string>(), "Log file to read sensor data from");
+	    (c_szINPUT, po::value<std::string>(), "Read sensor data from input file instead of connecting to robot via serial port");
 
 	po::variables_map vm;
 	po::store(po::parse_command_line(nArgs, aczArgs, optdesc), vm);
 	po::notify(vm);    
 	
-	if(vm.count(c_szINPUT)) {
-		// read from log 
-		// TODO
+	if(vm.count(c_szHELP)) {
+		std::cout << optdesc << std::endl;
+		return 1;
+	} else if(vm.count(c_szINPUT)) {
+		// Read saved sensor data from log file 
+		auto strLogFile = vm[c_szINPUT].as<std::string>();
+		std::FILE* fp = std::fopen(strLogFile.c_str(), "r");
+		if(!fp) {
+			std::cerr << "Couldn't open " << vm[c_szINPUT].as<std::string>() << std::endl;
+			return 1;
+		}
+
+		cv::VideoWriter vid(strLogFile + ".mov", 
+			cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 
+			10, 
+			cv::Size(400, 400) // TODO: Don't hardcode
+		);
+
+		CRobotController rbt;
+		SSensorData data;
+		// TODO: Move SSensorData output and input to robot_configuration.h
+		while(7==std::fscanf(fp, "%*lf;%hd;%hd;%hd;%hd;%hd;%hd;%hd\n", 
+			&data.m_nYaw, &data.m_nAngle, &data.m_nDistance,
+			&data.m_anEncoderTicks[0], &data.m_anEncoderTicks[1], 
+			&data.m_anEncoderTicks[2], &data.m_anEncoderTicks[3])) 
+		{ 
+			rbt.receivedSensorData(data);
+
+			cv::Mat matTemp;
+			cv::cvtColor(rbt.getMap(map::occupancy), matTemp, cv::COLOR_GRAY2RGB);
+			vid << matTemp;
+		}
+
+		return 0;
 	} else if(vm.count(c_szPORT)) {
+		// Read serial port, log file name etc
 		auto const strPort = vm[c_szPORT].as<std::string>();
 		std::string strLog;
 		if(vm.count(c_szLOG)) {
@@ -253,6 +289,7 @@ int main(int nArgs, char* aczArgs[]) {
 		// TODO: Setup boost::asio TCP server to send map bitmaps?
 		// Should that be an boost::asio::io_service running on a separate thread?
 
+		// Establish robot connection via serial port
 		try {
 			boost::asio::io_service io_service;	
 
@@ -293,7 +330,9 @@ int main(int nArgs, char* aczArgs[]) {
 		} 
 		return 0;	
 	} else {
-		std::cerr << "You must specify either the port to read from or an input file to parse" << std::endl;
+		std::cout << "You must specify either the port to read from or an input file to parse" << std::endl;
+		std::cout << optdesc << std::endl;
+		return 1;
 		return 1;
 	}
 }

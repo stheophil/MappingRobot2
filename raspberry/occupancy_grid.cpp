@@ -7,7 +7,7 @@
 //
 
 #include "occupancy_grid.h"
-#include "rover.h" // Data structures and configuration data shared with Arduino controller
+#include "robot_configuration.h" // Data structures and configuration data shared with Arduino controller
 
 #include <assert.h>
 #include <cstdlib>
@@ -18,85 +18,7 @@
 #include <boost/range/size.hpp>
 #include <opencv2/imgproc.hpp>
 
-namespace rbt {
-    double angularDistance( double fAngleA, double fAngleB) {
-        auto fAngle = fAngleA - fAngleB;
-        
-        // normalize angle to be between (-pi, +pi]
-        while(fAngle < -M_PI) {
-            fAngle+=2*M_PI;
-        }
-        while(M_PI <= fAngle) {
-            fAngle-=2*M_PI;
-        }
-        assert(-M_PI<=fAngle && fAngle<M_PI);
-        return fAngle;
-    }
-        
-    struct SArc {
-        rbt::point<int> m_ptnCenter;
-        double m_fAngleFrom;
-        double m_fAngleTo;
-        double m_fRadius;
-        
-        template<class Func>
-        void for_each_pixel(Func foreach) const {
-            // TODO: Approximate arc with lines, use cv::LineIterator instead
-            auto szFrom = rbt::size<int>::fromAngleAndDistance(m_fAngleFrom, m_fRadius);
-            auto szTo = rbt::size<int>::fromAngleAndDistance(m_fAngleTo, m_fRadius);
-            
-            assert(angularDistance(m_fAngleFrom, m_fAngleTo)<M_PI/2);
-            // This can happen because szFrom and szTo are already cast to int coordinates:
-            // assert(szFrom.compare(szTo) != 0);
-            
-            if(szFrom.compare(szTo) < 0) { // ptFrom should be left of ptTo
-                std::swap(szFrom, szTo);
-            }
-            
-            auto nQuadrantFrom = szFrom.quadrant();
-            auto nQuadrantTo = szTo.quadrant();
-            
-            assert(nQuadrantFrom==nQuadrantTo || nQuadrantFrom==(nQuadrantTo+1)%4);
-            
-            auto rectnBound = rbt::rect<int>::bound({rbt::point<int>::zero(),
-                                                    rbt::point<int>::zero() + szFrom,
-                                                    rbt::point<int>::zero() + szTo});
-            if(nQuadrantFrom != nQuadrantTo) {
-                auto nRadius = rbt::numeric_cast<int>(m_fRadius);
-                switch(nQuadrantFrom) {
-                    case 0: rectnBound |= rbt::point<int>(nRadius, 0); break;
-                    case 1: rectnBound |= rbt::point<int>(0, nRadius); break;
-                    case 2: rectnBound |= rbt::point<int>(-nRadius, 0); break;
-                    case 3: rectnBound |= rbt::point<int>(0, -nRadius); break;
-                    default: assert(false);
-                }
-            }
-            
-            auto fSqrRadius = rbt::sqr(m_fRadius);
-            for(int y = rectnBound.bottom; y <= rectnBound.top; ++y) { // both-inclusive
-                // Scan bound rect lines in y-direction for interval between vectors szFrom and szTo
-                // Since arcs are convex, there is (exactly) one contiguous sequence of pixels
-                // that fall into the arc. Therefore, we can stop processing a line once we
-                // find the first pixel _not_ in the arc, after we have found pixels in the arc.
-                bool bFoundPointsInLine = false;
-                for(int x = rectnBound.left; x <= rectnBound.right; ++x) {
-                    rbt::size<int> sz(x, y); // still relative to point(0,0), the arc center
-                    auto nSqrDistance = sz.SqrAbs();
-                    
-                    if(nSqrDistance < fSqrRadius
-                    && 0<=szFrom.compare(sz)    // this is very strict and does not
-                    && 0<=sz.compare(szTo)) {   // count grid cells partially inside arc
-                        bFoundPointsInLine = true;
-                        
-                        foreach(m_ptnCenter + sz, nSqrDistance);
-                    } else if(bFoundPointsInLine) {
-                        break; // go to next line
-                    }
-                }
-            }
-        }
-    };
-    
+namespace {
     struct SRotatedRect {
         rbt::point<int> m_ptnCenter;
         rbt::size<double> m_szf;
@@ -161,65 +83,48 @@ namespace rbt {
             });
         }
     };
+}
 
-    COccupancyGrid::COccupancyGrid(rbt::size<int> const& szn, int nScale)
-    :   m_szn(szn), m_nScale(nScale),
-        m_matfMapLogOdds(m_szn.x, m_szn.y, CV_32FC1, 0.0f),
-        m_matnMapGreyscale(m_szn.x, m_szn.y, CV_8UC1, 128),
-        m_matnMapEroded(m_szn.x, m_szn.y, CV_8UC1, 128)
-    {
-        assert(0==szn.x%2 && 0==szn.y%2);
-    }
+COccupancyGrid::COccupancyGrid(rbt::size<int> const& szn, int nScale)
+:   m_szn(szn), m_nScale(nScale),
+    m_matfMapLogOdds(m_szn.x, m_szn.y, CV_32FC1, 0.0f),
+    m_matnMapGreyscale(m_szn.x, m_szn.y, CV_8UC1, 128),
+    m_matnMapEroded(m_szn.x, m_szn.y, CV_8UC1, 128)
+{
+    assert(0==szn.x%2 && 0==szn.y%2);
+}
 
+void COccupancyGrid::update(rbt::pose const& pose, SSensorData const& sensordata) {
+    auto UpdateMap = [this](rbt::point<int> const& pt, float fDeltaValue) {
+        auto const fOdds = m_matfMapLogOdds.at<float>(pt.y, pt.x) + fDeltaValue;
+        m_matfMapLogOdds.at<float>(pt.y, pt.x) = fOdds;
+        auto const nColor = rbt::numeric_cast<std::uint8_t>(1.0 / ( 1.0 + std::exp( fOdds )) * 255);
+        m_matnMapGreyscale.at<std::uint8_t>(pt.y, pt.x) = nColor;
+    };
+
+    auto const ptnGrid = toGridCoordinates(pose.m_pt);
+    ForEachCell(ptnGrid, pose.m_fYaw, sensordata, m_matfMapLogOdds, m_nScale, UpdateMap);
     
-    void COccupancyGrid::update(point<double> const& ptf, double fYaw, int nAngle, int nDistance) {
-        assert(nAngle==0 || std::abs(nAngle)==90);
-        auto const fAngleSonar = fYaw + M_PI_2 * rbt::sign(nAngle);
-        auto const ptnGrid = toGridCoordinates(ptf);
-        
-        auto const fSqrMaxDistance = rbt::sqr(c_fSonarMaxDistance/m_nScale);
-        auto const fSqrMeasuredDistance = rbt::sqr((nDistance - c_fSonarDistanceTolerance/2)/m_nScale);
-        
-        auto UpdateMap = [this](rbt::point<int> const& pt, float fValue) {
-            m_matfMapLogOdds.at<float>(pt.y, pt.x) = fValue;
-            auto const nColor = rbt::numeric_cast<std::uint8_t>(1.0 / ( 1.0 + std::exp( fValue )) * 255);
-            m_matnMapGreyscale.at<std::uint8_t>(pt.y, pt.x) = nColor;
-        };
-        
-        SArc arc{ptnGrid,
-            fAngleSonar - c_fSonarOpeningAngle/2,
-            fAngleSonar + c_fSonarOpeningAngle/2,
-            (nDistance + c_fSonarDistanceTolerance/2)/m_nScale
-        };
-        arc.for_each_pixel([&](point<int> const& pt, double fSqrDistance) {
-            if(fSqrDistance < fSqrMaxDistance) {
-                auto const fInverseSensorModel = fSqrDistance < fSqrMeasuredDistance
-                    ? -0.5 // free
-                    : (100.0 / m_nScale) / std::sqrt(fSqrDistance); // occupied
-
-                UpdateMap(pt, m_matfMapLogOdds.at<float>(pt.y, pt.x) + fInverseSensorModel); // - prior which is 0
-            }
-        });
-        
-        // Clear position of robot itself
-        SRotatedRect rectRobot{ptnGrid, rbt::size<double>(c_nRobotWidth, c_nRobotHeight)/m_nScale, fYaw};
-        rectRobot.for_each_pixel([&](rbt::point<int> const& pt) { UpdateMap(pt, -100); });
-        
-        // Erode image
-        // A pixel p in imageEroded is marked free when the robot centered at p does not occupy an occupied pixel in self.image
-        // i.e. the pixel p has the maximum value of the surrounding pixels inside the diameter defined by the robot's size
-        // We overestimate robot size by taking robot diagonal        
-        static const int s_nKernelDiameter =
-            rbt::numeric_cast<int>(std::ceil(std::sqrt(rbt::size<int>(c_nRobotWidth, c_nRobotHeight).SqrAbs()) / m_nScale));
-        static const cv::Mat s_matnKernel = cv::Mat(s_nKernelDiameter, s_nKernelDiameter, CV_8UC1, 1);
-        cv::erode(m_matnMapGreyscale, m_matnMapEroded, s_matnKernel);
-    }
+    // Clear position of robot itself
+    SRotatedRect rectRobot{ptnGrid, rbt::size<double>(c_nRobotWidth, c_nRobotHeight)/m_nScale, pose.m_fYaw};
+    rectRobot.for_each_pixel([&](rbt::point<int> const& pt) {
+        UpdateMap(pt, -m_matfMapLogOdds.at<float>(pt.y, pt.x)-c_fOccupancyRover); 
+    });
     
-    point<int> COccupancyGrid::toGridCoordinates(point<double> const& pt) const {
-        return point<int>(pt/m_nScale) + m_szn/2;
-    }
+    // Erode image
+    // A pixel p in imageEroded is marked free when the robot centered at p does not occupy an occupied pixel in self.image
+    // i.e. the pixel p has the maximum value of the surrounding pixels inside the diameter defined by the robot's size
+    // We overestimate robot size by taking robot diagonal        
+    static const int s_nKernelDiameter =
+        rbt::numeric_cast<int>(std::ceil(std::sqrt(rbt::size<int>(c_nRobotWidth, c_nRobotHeight).SqrAbs()) / m_nScale));
+    static const cv::Mat s_matnKernel = cv::Mat(s_nKernelDiameter, s_nKernelDiameter, CV_8UC1, 1);
+    cv::erode(m_matnMapGreyscale, m_matnMapEroded, s_matnKernel);
+}
 
-    point<int> COccupancyGrid::toWorldCoordinates(point<int> const& pt) const {
-        return (pt - m_szn/2) * m_nScale;
-    }
+rbt::point<int> COccupancyGrid::toGridCoordinates(rbt::point<double> const& pt) const {
+    return rbt::point<int>(pt/m_nScale) + m_szn/2;
+}
+
+rbt::point<int> COccupancyGrid::toWorldCoordinates(rbt::point<int> const& pt) const {
+    return (pt - m_szn/2) * m_nScale;
 }
