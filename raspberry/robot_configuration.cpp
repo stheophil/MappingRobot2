@@ -11,12 +11,12 @@ namespace {
     // y-axis points into direction of robot front
     rbt::size<double> const c_szfLidarOffset(0, 7); 
 
-    inline double encoderTicksToRadians(short nTicks) { // Note: Formula depends on wheel encoders
+    double encoderTicksToRadians(short nTicks) { // Note: Formula depends on wheel encoders
         return nTicks * 6.0 * M_PI / 1000.0;
     }
 
-    double rad(int nAngle) {
-        return nAngle * M_PI / 180;
+    double rad(double fAngle) {
+        return fAngle * M_PI / 180;
     }
 }
 
@@ -39,6 +39,7 @@ rbt::pose UpdatePose(rbt::pose const& pose, SSensorData const& sensordata) {
         c_nWheelRadius * fT * std::sin(pose.m_fYaw)
     );
 
+    // fDeltaYaw is counter-clockwise
     auto const fDeltaYaw = c_nWheelRadius * fR / c_fWheelDistance;
 
     return rbt::pose(

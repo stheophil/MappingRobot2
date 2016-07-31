@@ -257,7 +257,7 @@ int main(int nArgs, char* aczArgs[]) {
 
 		cv::VideoWriter vid(strLogFile + ".mov", 
 			cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 
-			10, 
+			20, 
 			cv::Size(400, 400) // TODO: Don't hardcode
 		);
 

@@ -227,7 +227,7 @@ namespace rbt {
     }
 
     template<typename T>
-    size<T> size<T>::rotated(double fAngle) const {
+    size<T> size<T>::rotated(double fAngle) const { // counter-clockwise
         auto c = std::cos(fAngle);
         auto s = std::sin(fAngle);
         return {x * c - y * s, x * s + y * c};

@@ -35,12 +35,12 @@ struct SRobotCommand {
 static_assert(sizeof(SRobotCommand)==6, "");
 
 struct SSensorData { // must be < 64 bytes
-    unsigned short m_nYaw; // in degrees x 100 (0, 359) both inclusive, USHRT_MAX -> no IMU
+    unsigned short m_nYaw; // in degrees x 100 (0, 359) both inclusive, (clock-wise!), USHRT_MAX -> no IMU
     uint8_t m_nCalibSystem; // calibration data (0, 3) - 0 is uncalibrated
     uint8_t m_nCalibGyro;
     uint8_t m_nCalibAccel;
     uint8_t m_nCalibMag;
-    short m_nAngle; // lidar measurement angle, in lidar frame of reference
+    short m_nAngle; // lidar measurement angle, counter-clockwise, in lidar frame of reference
     short m_nDistance; // lidar distance in cm, in lidar frame of reference
     short m_anEncoderTicks[4]; // front left, front right, back left, back right
 };
