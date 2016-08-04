@@ -5,16 +5,20 @@
 #include "geometry.h"
 
 // Robot configuration
-const int c_nRobotWidth = 30; // cm
-const int c_nRobotHeight = 30; // cm
 
+// Motion model
 double InitialYaw(SSensorData const& sensordata);
-rbt::pose UpdatePose(rbt::pose const& pose, SSensorData const& sensordata); 
-void ForEachCell(rbt::point<int> const& ptnGrid, double fYaw, SSensorData const& sensordata, 
+rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& sensordata); 
+
+// Occupancy grid
+void ForEachCell(rbt::pose<int> const& poseGrid, 
+    double fAngle, int nDistance, 
     cv::Mat const& matGrid, int nScale, 
     std::function<void(rbt::point<int> const&, float)> UpdateGrid  
 );
 
+const int c_nRobotWidth = 30; // cm
+const int c_nRobotHeight = 30; // cm
 const float c_fOccupancyRover = -100; // value in occupancy grid of positions occupied by rover itself
 
 #endif // robot_configuration

@@ -21,6 +21,11 @@
 
 namespace rbt {
     template<typename T> struct size;
+    
+    template<typename T>
+    double rad(T tAngle) {
+        return tAngle * M_PI / 180;
+    }
 
     template<typename T>
     struct point :
@@ -122,14 +127,19 @@ namespace rbt {
         interval<T>& operator|=(T const& t);
     };
 
+    template<typename T>
     struct pose {
-        point<double> m_pt;
+        point<T> m_pt;
         double m_fYaw;
 
         pose() = default;
-        pose(point<double> const& pt, double fYaw)
+        pose(point<T> const& pt, double fYaw)
             : m_pt(pt), m_fYaw(fYaw)
         {}
+
+        static pose<T> zero() {
+            return pose<T>(point<T>::zero(), 0);
+        }
     };
 
     template<typename T>

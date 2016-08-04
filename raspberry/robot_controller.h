@@ -5,18 +5,13 @@
 #include "occupancy_grid.h"
 #include "nonmoveable.h"
 
-enum class map {
-    occupancy,
-    eroded
-};
-
 struct CRobotController : rbt::nonmoveable {
     CRobotController();        
     void receivedSensorData(SSensorData const& data);
-    cv::Mat const& getMap(map m);
+    cv::Mat const& getMap();
 private:
     COccupancyGrid m_occgrid;
-    std::vector<rbt::pose> m_vecpose;
+    std::vector<rbt::pose<double>> m_vecpose;
 };
 
 #endif // robot_controller

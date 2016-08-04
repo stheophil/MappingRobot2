@@ -17,13 +17,13 @@
 
 struct COccupancyGrid : rbt::nonmoveable {
     COccupancyGrid(rbt::size<int> const& szn, int nScale);        
-    void update(rbt::pose const& pose, SSensorData const& sensordata);
+    void update(rbt::pose<double> const& pose, double fAngle, int nDistance);
     
     rbt::point<int> toGridCoordinates(rbt::point<double> const& pt) const;
     rbt::point<int> toWorldCoordinates(rbt::point<int> const& pt) const;
     
     cv::Mat const& GreyscaleMap() const { return m_matnMapGreyscale; }
-    cv::Mat const& ErodedMap() const { return m_matnMapEroded; }
+    // cv::Mat const& ErodedMap() const { return m_matnMapEroded; }
     
     rbt::size<int> const m_szn;
     int const m_nScale; // cm per pixel
@@ -31,7 +31,7 @@ struct COccupancyGrid : rbt::nonmoveable {
 private:
     cv::Mat m_matfMapLogOdds;
     cv::Mat m_matnMapGreyscale;
-    cv::Mat m_matnMapEroded;
+    // cv::Mat m_matnMapEroded;
 };
 
 #endif /* occupancy_grid_h */

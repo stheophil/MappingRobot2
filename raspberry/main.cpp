@@ -272,7 +272,7 @@ int main(int nArgs, char* aczArgs[]) {
 			rbt.receivedSensorData(data);
 
 			cv::Mat matTemp;
-			cv::cvtColor(rbt.getMap(map::occupancy), matTemp, cv::COLOR_GRAY2RGB);
+			cv::cvtColor(rbt.getMap(), matTemp, cv::COLOR_GRAY2RGB);
 			vid << matTemp;
 		}
 
