@@ -2,7 +2,12 @@
 
 CMakeCache.txt
 CMakeFiles
+CMakeScripts
+
 raspberry/Makefile
+raspberry/build
+raspberry/*.xcodeproj
+
 cmake_install.cmake
 install_manifest.txt
 .vscode
