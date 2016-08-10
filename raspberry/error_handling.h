@@ -7,4 +7,6 @@ bool Verify(bool bResult, const char* szMessage, const char* szFile, int nLine);
 #define VERIFYEQUAL(expr, result) Verify(expr==result, #expr, __FILE__, __LINE__)
 #define ASSERT(expr) (assert(expr))
 
+#define LOG(x)
+
 #endif

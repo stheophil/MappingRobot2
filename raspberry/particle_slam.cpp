@@ -98,10 +98,10 @@ bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
     // add to scan line
     if(!m_scanline.add(data)) { 
         // if scanline full, update all particles,
-        auto const szf = m_scanline.translation();
-        
         LOG("Update particles");
-        LOG("t = (" << szf.x << ";" << szf.y << ") r = " << m_scanline.rotation());
+        LOG("t = (" << m_scanline.translation().x << 
+            ";" << m_scanline.translation().y << ") "
+            "r = " << m_scanline.rotation());
 
         int i = 0; 
         double fWeightTotal = 0.0;
