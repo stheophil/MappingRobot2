@@ -15,13 +15,16 @@
 
 #include <opencv2/core.hpp>
 
-struct COccupancyGrid : rbt::nonmoveable {
+struct COccupancyGrid {
     COccupancyGrid(rbt::size<int> const& szn, int nScale);        
+    COccupancyGrid(COccupancyGrid const&);
+
     void update(rbt::pose<double> const& pose, double fAngle, int nDistance);
     
     rbt::point<int> toGridCoordinates(rbt::point<double> const& pt) const;
     rbt::point<int> toWorldCoordinates(rbt::point<int> const& pt) const;
     
+    cv::Mat const& LogOddsMap() const { return m_matfMapLogOdds; }
     cv::Mat const& GreyscaleMap() const { return m_matnMapGreyscale; }
     // cv::Mat const& ErodedMap() const { return m_matnMapEroded; }
     

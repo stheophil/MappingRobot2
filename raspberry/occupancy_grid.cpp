@@ -86,14 +86,22 @@ namespace {
 }
 
 COccupancyGrid::COccupancyGrid(rbt::size<int> const& szn, int nScale)
-:   m_szn(szn), m_nScale(nScale),
-    m_matfMapLogOdds(m_szn.x, m_szn.y, CV_32FC1, 0.0f),
-    m_matnMapGreyscale(m_szn.x, m_szn.y, CV_8UC1, 128)
+:   m_szn(szn), 
+    m_nScale(nScale),
+    m_matfMapLogOdds(szn.x, szn.y, CV_32FC1, cv::Scalar(0.0f)),
+    m_matnMapGreyscale(szn.x, szn.y, CV_8UC1, cv::Scalar(128))
 {
     assert(0==szn.x%2 && 0==szn.y%2);
 }
 
-void COccupancyGrid::update(rbt::pose<double> const& pose, double fAngle, int nDistance) {
+COccupancyGrid::COccupancyGrid(COccupancyGrid const& occgrid) 
+:   m_szn(occgrid.m_szn), 
+    m_nScale(occgrid.m_nScale), 
+    m_matfMapLogOdds(occgrid.m_matfMapLogOdds.clone()),
+    m_matnMapGreyscale(occgrid.m_matnMapGreyscale.clone())
+{}
+
+void COccupancyGrid::update(rbt::pose<double> const& pose, double fRadAngle, int nDistance) {
     auto UpdateMap = [this](rbt::point<int> const& pt, float fDeltaValue) {
         auto const fOdds = m_matfMapLogOdds.at<float>(pt.y, pt.x) + fDeltaValue;
         m_matfMapLogOdds.at<float>(pt.y, pt.x) = fOdds;
@@ -101,11 +109,16 @@ void COccupancyGrid::update(rbt::pose<double> const& pose, double fAngle, int nD
         m_matnMapGreyscale.at<std::uint8_t>(pt.y, pt.x) = nColor;
     };
 
-    auto const ptnGrid = toGridCoordinates(pose.m_pt);
-    ForEachCell(rbt::pose<int>(ptnGrid, pose.m_fYaw), fAngle, nDistance, m_matfMapLogOdds, m_nScale, UpdateMap);
+    ForEachCell(
+        pose, 
+        fRadAngle, nDistance, 
+        m_matfMapLogOdds, 
+        std::bind(&COccupancyGrid::toGridCoordinates, this, std::placeholders::_1), 
+        UpdateMap
+    );
     
     // Clear position of robot itself
-    SRotatedRect rectRobot{ptnGrid, rbt::size<double>(c_nRobotWidth, c_nRobotHeight)/m_nScale, pose.m_fYaw};
+    SRotatedRect rectRobot{toGridCoordinates(pose.m_pt), rbt::size<double>(c_nRobotWidth, c_nRobotHeight)/m_nScale, pose.m_fYaw};
     rectRobot.for_each_pixel([&](rbt::point<int> const& pt) {
         UpdateMap(pt, -m_matfMapLogOdds.at<float>(pt.y, pt.x) + c_fOccupancyRover); 
     });

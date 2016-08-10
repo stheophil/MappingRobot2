@@ -14,12 +14,12 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories("../arduino/src")
 
 add_executable(robot 
-	# edge_following_strategy.cpp
 	occupancy_grid.cpp
 	robot_controller.cpp
 	main.cpp
 	error_handling.cpp
-	robot_configuration.cpp)
+	robot_configuration.cpp
+	particle_slam.cpp)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")

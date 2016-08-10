@@ -1,6 +1,7 @@
 #include "error_handling.h"
 #include "rover.h"
 #include "robot_controller.h"
+#include "particle_slam.h"
 
 #include <chrono>
 #include <future>
@@ -257,23 +258,24 @@ int main(int nArgs, char* aczArgs[]) {
 
 		cv::VideoWriter vid(strLogFile + ".mov", 
 			cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 
-			20, 
+			5, 
 			cv::Size(400, 400) // TODO: Don't hardcode
 		);
 
-		CRobotController rbt;
+		CParticleSLAM rbt;
 		SSensorData data;
+
 		// TODO: Move SSensorData output and input to robot_configuration.h
 		while(7==std::fscanf(fp, "%*lf;%hd;%hd;%hd;%hd;%hd;%hd;%hd\n", 
 			&data.m_nYaw, &data.m_nAngle, &data.m_nDistance,
 			&data.m_anEncoderTicks[0], &data.m_anEncoderTicks[1], 
 			&data.m_anEncoderTicks[2], &data.m_anEncoderTicks[3])) 
 		{ 
-			rbt.receivedSensorData(data);
-
-			cv::Mat matTemp;
-			cv::cvtColor(rbt.getMap(), matTemp, cv::COLOR_GRAY2RGB);
-			vid << matTemp;
+			if(rbt.receivedSensorData(data)) {
+				cv::Mat matTemp;
+				cv::cvtColor(rbt.getMap(), matTemp, cv::COLOR_GRAY2RGB);
+				vid << matTemp;
+			}
 		}
 
 		return 0;

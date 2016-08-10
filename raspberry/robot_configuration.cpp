@@ -1,6 +1,9 @@
 #include "rover.h"
 #include "geometry.h"
+#include "particle_slam.h"
+#include "error_handling.h"
 
+#include <random>
 #include <opencv2/imgproc.hpp>
 
 namespace {
@@ -11,8 +14,19 @@ namespace {
     // y-axis points into direction of robot front
     rbt::size<double> const c_szfLidarOffset(0, 7); 
 
+    rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance) {
+        auto const szfLidar = rbt::size<double>::fromAngleAndDistance(fRadAngle, nDistance)
+            + c_szfLidarOffset;
+        return rbt::point<double>(pose.m_pt + szfLidar.rotated(pose.m_fYaw));
+    }
+
     double encoderTicksToRadians(short nTicks) { // Note: Formula depends on wheel encoders
         return nTicks * 6.0 * M_PI / 1000.0;
+    }
+
+    double gauss_probability(double fX, double fS) { // median = 0
+        return std::exp(-1 * std::pow(fX, 2) / (2*std::pow(fS, 2)))
+            / (std::sqrt(2*M_PI) * fS);
     }
 }
 
@@ -22,8 +36,7 @@ double InitialYaw(SSensorData const& sensordata) {
 
 rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& sensordata) {
     // differential drive: http://planning.cs.uiuc.edu/node659.html
-    // take average of left wheel movement & right wheel movement
-
+    // take average of two wheels on each side
     auto const fRadLeft = encoderTicksToRadians((sensordata.m_anEncoderTicks[0] + sensordata.m_anEncoderTicks[2])/2);
     auto const fRadRight = encoderTicksToRadians((sensordata.m_anEncoderTicks[1] + sensordata.m_anEncoderTicks[3])/2);
 
@@ -44,22 +57,77 @@ rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& s
     );
 } 
 
-void ForEachCell(rbt::pose<int> const& poseGrid, 
-    double fAngle, int nDistance, 
-    cv::Mat const& matGrid, int nScale, 
+void ForEachCell(
+    rbt::pose<double> const& pose, 
+    double fRadAngle, int nDistance, 
+    cv::Mat const& matGrid,
+    std::function<rbt::point<int> (rbt::point<double>)> ToGridPoint, 
     std::function<void(rbt::point<int> const&, float)> UpdateGrid  
 ) {
-    auto const szfLidar = rbt::size<double>::fromAngleAndDistance(fAngle, nDistance)
-        + c_szfLidarOffset;
-    
-    rbt::size<int> sznLidarInRobotAngle(szfLidar.rotated(poseGrid.m_fYaw)/nScale);
-    rbt::point<int> const ptnLidar(poseGrid.m_pt + sznLidarInRobotAngle);
-
-    cv::LineIterator itpt(matGrid, poseGrid.m_pt, ptnLidar);
+    cv::LineIterator itpt(
+        matGrid, 
+        ToGridPoint(pose.m_pt), 
+        ToGridPoint(Obstacle(pose, fRadAngle, nDistance))
+    );
     for(int i = 0; i < itpt.count; i++, ++itpt) {
         UpdateGrid(rbt::point<int>(itpt.pos()),  i<itpt.count-1 
             ? -0.5 // free
-            : (100.0 / nScale) // occupied  
+            : 20 // occupied  
         );
     }
+}
+
+static std::random_device s_rd;
+rbt::pose<double> sample_motion_model(rbt::pose<double> const& pose, rbt::size<double> const& szf, double fRadAngle) {
+    // http://gki.informatik.uni-freiburg.de/lehre/ws0203/Robotik/papers/kalman/kurt_robot_notes.pdf
+    // TODO: Make measurements to get actual errors
+    double const c_fRangeStdDev = 0.1; // 0.1 cm/cm range error 
+    double const c_fTurnVar = 0.09; // (0.3 rad)^2 / rad turn error
+    double const c_fDriftVar = 0.0003; // (pi/18 rad)^2/100 cm drift error ~ (5 deg)^2/m 
+
+    auto const fDistance = szf.Abs();
+    rbt::size<double> const szfTranslation = [&] {
+        if(0!=fDistance) { 
+            // there was actual movement -> sample range error
+            auto const szfSampled = szf.normalized() 
+                * std::normal_distribution<double>(fDistance, c_fRangeStdDev * fDistance)(s_rd);
+            return szfSampled.rotated(pose.m_fYaw);
+        } else {
+            return rbt::size<double>::zero();
+        }
+    }();
+
+    return rbt::pose<double>(
+        pose.m_pt + szfTranslation,
+        pose.m_fYaw + 
+            // sample from rotation errors
+            std::normal_distribution<double>(
+                fRadAngle, 
+                std::sqrt(c_fTurnVar * std::abs(fRadAngle) + c_fDriftVar * fDistance)
+            )(s_rd)
+        );
+}
+
+double measurement_model_map(rbt::pose<double> const& pose, 
+    SScanLine const& scanline, 
+    std::function<double (rbt::point<double>)> Distance
+) {
+    // Likelihood field model
+    // Thrun, Probabilistic Robotics, p. 169ff
+
+    // TODO: Learn sensor parameters? 
+    // We do indoor-scanning, so max-distance reading is ignored
+    double const z_hit = 0.9;
+    double const z_rand = 0.1;
+
+    double const c_fSensorSigma = 2; // ~ +-10cm with current map scale  
+
+    double fWeight = 1.0;
+    scanline.ForEachScan(pose, [&](rbt::pose<double> const& poseScan, double fAngle, int nDistance) {
+        double const fLikelihood = 
+            z_hit * gauss_probability( Distance(Obstacle(poseScan, fAngle, nDistance)), c_fSensorSigma) 
+            + z_rand; 
+        fWeight = fWeight * fLikelihood;
+    });
+    return fWeight;
 }

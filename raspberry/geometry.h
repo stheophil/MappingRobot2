@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "math.h"
+#include "error_handling.h"
 
 namespace rbt {
     template<typename T> struct size;
@@ -80,16 +81,20 @@ namespace rbt {
         {}
         
         template<typename S>
-        explicit size(size<S> const& sz) : x(rbt::numeric_cast<T>(sz.x)), y(rbt::numeric_cast<T>(sz.y))
+        explicit size(size<S> const& sz) : size(sz.x, sz.y)
+        {}
+
+        template<typename S>
+        explicit size(point<S> const& pt) : size(pt.x, pt.y)
         {}
         
         static size<T> fromAngleAndDistance(double fYaw, double fDistance);
-    
+        static size<T> zero(); 
+
         size<T>& operator+=(size<T> const& sz);
         size<T>& operator-=(size<T> const& sz);
         size<T>& operator*=(T t);
         size<T>& operator/=(T t);
-
         
         T operator*(size<T> const& rhs) const;
         
@@ -98,7 +103,8 @@ namespace rbt {
         int compare(size const& sz) const;
         int quadrant() const;
         size<T> rotated(double fAngle) const;
-            
+        size<T> normalized() const;
+
         T Abs() const;
         T SqrAbs() const;
     };
@@ -191,6 +197,11 @@ namespace rbt {
     }
     
     template<typename T>
+    size<T> size<T>::zero() {
+        return size<T>(0, 0);
+    }
+
+    template<typename T>
     size<T>& size<T>::operator+=(size<T> const& sz) {
         x += sz.x;
         y += sz.y;
@@ -243,6 +254,13 @@ namespace rbt {
         return {x * c - y * s, x * s + y * c};
     }
     
+
+    template<typename T>
+    size<T> size<T>::normalized() const {
+        ASSERT(x!=0 || y!=0);
+        return *this / Abs();
+    }
+
     template<typename T>
     T size<T>::Abs() const {
         return rbt::numeric_cast<T>(std::sqrt(SqrAbs()));
