@@ -77,7 +77,7 @@ void SParticle::update(SScanLine const& scanline) {
             m_occgrid.update(poseScan, fAngle, nDistance);
         });
 
-    cv::distanceTransform(m_occgrid.ObstacleMap(), m_matLikelihood, CV_DIST_L2, CV_DIST_MASK_PRECISE); 
+    cv::distanceTransform(m_occgrid.ObstacleMap(), m_matLikelihood, CV_DIST_L2, 3); 
 }
 
 ///////////////////////
