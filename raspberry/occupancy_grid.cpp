@@ -33,6 +33,14 @@ COccupancyGrid::COccupancyGrid(COccupancyGrid const& occgrid)
     m_matnMapObstacle(occgrid.m_matnMapObstacle.clone())
 {}
 
+COccupancyGrid& COccupancyGrid::operator=(COccupancyGrid const& occgrid) { 
+    m_szn=occgrid.m_szn; 
+    m_nScale=occgrid.m_nScale; 
+    m_matfMapLogOdds=occgrid.m_matfMapLogOdds.clone();
+    m_matnMapObstacle=occgrid.m_matnMapObstacle.clone();
+    return *this;
+}
+
 void COccupancyGrid::update(rbt::pose<double> const& pose, double fRadAngle, int nDistance) {
     ForEachCell(
         pose, 

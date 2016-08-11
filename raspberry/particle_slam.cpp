@@ -60,6 +60,13 @@ SParticle::SParticle(SParticle const& p)
      m_occgrid(p.m_occgrid)
 {}
 
+SParticle& SParticle::operator=(SParticle const& p) {
+    m_pose = p.m_pose;
+    m_matLikelihood = p.m_matLikelihood.clone();
+    m_occgrid = p.m_occgrid;
+    return *this;
+}
+
 void SParticle::update(SScanLine const& scanline) {
     m_pose = sample_motion_model(m_pose, scanline.translation(), scanline.rotation());
 
@@ -83,7 +90,7 @@ void SParticle::update(SScanLine const& scanline) {
 ///////////////////////
 // SParticleSLAM
 CParticleSLAM::CParticleSLAM(int cParticles)
-    : m_vecparticle(cParticles), m_itparticle(m_vecparticle.end())
+    : m_vecparticle(cParticles), m_vecparticleTemp(cParticles), m_itparticle(m_vecparticle.end())
 {}
 
 static std::random_device s_rd;
@@ -117,8 +124,7 @@ bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
         auto const r = std::uniform_real_distribution<double>(0.0, fStepSize)(s_rd);
         auto c = m_vecparticle.front().m_fWeight;
 
-        std::vector<SParticle> vecparticleNew;
-        vecparticleNew.reserve(m_vecparticle.size());
+        auto itparticleOut = m_vecparticleTemp.begin();
         for(int i = 0, m = 0; m<m_vecparticle.size(); ++m) {
             auto const u = r + m * fStepSize;
             while(c<u) {
@@ -126,10 +132,10 @@ bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
                 c += m_vecparticle[i].m_fWeight;
             }
             LOG("Sample particle " << i);
-            vecparticleNew.emplace_back(m_vecparticle[i]);
+            *itparticleOut = m_vecparticle[i];
+            ++itparticleOut;
         }
-
-        std::swap(m_vecparticle, vecparticleNew);
+        std::swap(m_vecparticle, m_vecparticleTemp);
 
         m_itparticle = boost::max_element(
             boost::adaptors::transform(m_vecparticle, std::mem_fn(&SParticle::m_fWeight))

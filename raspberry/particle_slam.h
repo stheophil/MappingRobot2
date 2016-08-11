@@ -48,6 +48,7 @@ struct SParticle {
     
     SParticle();
     SParticle(SParticle const& p);
+    SParticle& operator=(SParticle const& p);
 
     void update(SScanLine const& scanline);
 };
@@ -59,6 +60,8 @@ struct CParticleSLAM : rbt::nonmoveable {
 
 private:
     std::vector<SParticle> m_vecparticle;
+    std::vector<SParticle> m_vecparticleTemp;
+
     SScanLine m_scanline;
 
     std::vector<rbt::pose<double>> m_vecpose;
