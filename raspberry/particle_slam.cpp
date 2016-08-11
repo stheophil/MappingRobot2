@@ -90,7 +90,7 @@ void SParticle::update(SScanLine const& scanline) {
 ///////////////////////
 // SParticleSLAM
 CParticleSLAM::CParticleSLAM(int cParticles)
-    : m_vecparticle(cParticles), m_vecparticleTemp(cParticles), m_itparticle(m_vecparticle.end())
+    : m_vecparticle(cParticles), m_itparticleBest(m_vecparticle.end()), m_vecparticleTemp(cParticles) 
 {}
 
 static std::random_device s_rd;
@@ -137,10 +137,10 @@ bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
         }
         std::swap(m_vecparticle, m_vecparticleTemp);
 
-        m_itparticle = boost::max_element(
+        m_itparticleBest = boost::max_element(
             boost::adaptors::transform(m_vecparticle, std::mem_fn(&SParticle::m_fWeight))
         ).base();
-        m_vecpose.emplace_back(m_itparticle->m_pose);
+        m_vecpose.emplace_back(m_itparticleBest->m_pose);
 
         m_scanline.clear();
         m_scanline.add(data);
@@ -150,11 +150,11 @@ bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
 }
 
 cv::Mat CParticleSLAM::getMap() const {
-    ASSERT(m_itparticle!=m_vecparticle.end());
-    cv::Mat m = m_itparticle->m_occgrid.ObstacleMap();
-    rbt::point<int> ptnPrev = m_itparticle->m_occgrid.toGridCoordinates(rbt::point<double>(0, 0));
+    ASSERT(m_itparticleBest!=m_vecparticle.end());
+    cv::Mat m = m_itparticleBest->m_occgrid.ObstacleMap();
+    rbt::point<int> ptnPrev = m_itparticleBest->m_occgrid.toGridCoordinates(rbt::point<double>(0, 0));
     boost::for_each(m_vecpose, [&](rbt::pose<double> const& pose) {
-        auto ptnGrid = m_itparticle->m_occgrid.toGridCoordinates(pose.m_pt);
+        auto ptnGrid = m_itparticleBest->m_occgrid.toGridCoordinates(pose.m_pt);
         cv::line(m, ptnPrev, ptnGrid, cv::Scalar(0));
         ptnPrev = ptnGrid;
     });

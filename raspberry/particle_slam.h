@@ -60,10 +60,10 @@ struct CParticleSLAM : rbt::nonmoveable {
 
 private:
     std::vector<SParticle> m_vecparticle;
+    std::vector<SParticle>::const_iterator m_itparticleBest;
+    std::vector<rbt::pose<double>> m_vecpose; // history of best poses
+    
+    SScanLine m_scanline; // accumulates individual lidar scans
+
     std::vector<SParticle> m_vecparticleTemp;
-
-    SScanLine m_scanline;
-
-    std::vector<rbt::pose<double>> m_vecpose;
-    std::vector<SParticle>::const_iterator m_itparticle; 
 }; 
