@@ -17,7 +17,7 @@
 
 struct COccupancyGrid {
     COccupancyGrid(rbt::size<int> const& szn, int nScale);        
-    COccupancyGrid(COccupancyGrid const&);
+    COccupancyGrid(COccupancyGrid const& occgrid);
 
     void update(rbt::pose<double> const& pose, double fAngle, int nDistance);
     
@@ -26,7 +26,6 @@ struct COccupancyGrid {
     
     cv::Mat const& LogOddsMap() const { return m_matfMapLogOdds; }
     cv::Mat const& ObstacleMap() const { return m_matnMapObstacle; }
-    // cv::Mat const& ErodedMap() const { return m_matnMapEroded; }
     
     rbt::size<int> const m_szn;
     int const m_nScale; // cm per pixel
@@ -34,7 +33,6 @@ struct COccupancyGrid {
 private:
     cv::Mat m_matfMapLogOdds;
     cv::Mat m_matnMapObstacle; // thresholded version of m_matfMapLogOdds
-    // cv::Mat m_matnMapEroded;
 };
 
 #endif /* occupancy_grid_h */

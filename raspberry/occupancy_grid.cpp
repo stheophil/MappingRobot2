@@ -125,16 +125,6 @@ void COccupancyGrid::update(rbt::pose<double> const& pose, double fRadAngle, int
     rectRobot.for_each_pixel([&](rbt::point<int> const& pt) {
         UpdateMap(pt, -m_matfMapLogOdds.at<float>(pt.y, pt.x) + c_fOccupancyRover); 
     });
-    
-    // Erode image
-    // A pixel p in imageEroded is marked free when the robot centered at p does not occupy an occupied pixel in self.image
-    // i.e. the pixel p has the maximum value of the surrounding pixels inside the diameter defined by the robot's size
-    // We overestimate robot size by taking robot diagonal        
-    
-    // static const int s_nKernelDiameter =
-    //     rbt::numeric_cast<int>(std::ceil(std::sqrt(rbt::size<int>(c_nRobotWidth, c_nRobotHeight).SqrAbs()) / m_nScale));
-    // static const cv::Mat s_matnKernel = cv::Mat(s_nKernelDiameter, s_nKernelDiameter, CV_8UC1, 1);
-    // cv::erode(m_matnMapGreyscale, m_matnMapEroded, s_matnKernel);
 }
 
 rbt::point<int> COccupancyGrid::toGridCoordinates(rbt::point<double> const& pt) const {
