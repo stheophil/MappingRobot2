@@ -89,7 +89,7 @@ COccupancyGrid::COccupancyGrid(rbt::size<int> const& szn, int nScale)
 :   m_szn(szn), 
     m_nScale(nScale),
     m_matfMapLogOdds(szn.x, szn.y, CV_32FC1, cv::Scalar(0.0f)),
-    m_matnMapGreyscale(szn.x, szn.y, CV_8UC1, cv::Scalar(128))
+    m_matnMapObstacle(szn.x, szn.y, CV_8UC1, cv::Scalar(255))
 {
     assert(0==szn.x%2 && 0==szn.y%2);
 }
@@ -98,15 +98,18 @@ COccupancyGrid::COccupancyGrid(COccupancyGrid const& occgrid)
 :   m_szn(occgrid.m_szn), 
     m_nScale(occgrid.m_nScale), 
     m_matfMapLogOdds(occgrid.m_matfMapLogOdds.clone()),
-    m_matnMapGreyscale(occgrid.m_matnMapGreyscale.clone())
+    m_matnMapObstacle(occgrid.m_matnMapObstacle.clone())
 {}
 
 void COccupancyGrid::update(rbt::pose<double> const& pose, double fRadAngle, int nDistance) {
     auto UpdateMap = [this](rbt::point<int> const& pt, float fDeltaValue) {
         auto const fOdds = m_matfMapLogOdds.at<float>(pt.y, pt.x) + fDeltaValue;
         m_matfMapLogOdds.at<float>(pt.y, pt.x) = fOdds;
-        auto const nColor = rbt::numeric_cast<std::uint8_t>(1.0 / ( 1.0 + std::exp( fOdds )) * 255);
-        m_matnMapGreyscale.at<std::uint8_t>(pt.y, pt.x) = nColor;
+        // Calculating the greyscale map is pretty expensive
+        // If we ever need a non-binary version, a lookup table
+        // would be useful instead of this:
+        // auto const nColor = rbt::numeric_cast<std::uint8_t>(1.0 / ( 1.0 + std::exp( fOdds )) * 255);
+        m_matnMapObstacle.at<std::uint8_t>(pt.y, pt.x) = 0 < fOdds ? 0 : 255;
     };
 
     ForEachCell(

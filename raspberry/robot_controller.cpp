@@ -29,5 +29,5 @@ void CRobotController::receivedSensorData(SSensorData const& data) {
 }
 
 cv::Mat const& CRobotController::getMap() {
-    return m_occgrid.GreyscaleMap();
+    return m_occgrid.ObstacleMap();
 }

@@ -25,7 +25,7 @@ struct COccupancyGrid {
     rbt::point<int> toWorldCoordinates(rbt::point<int> const& pt) const;
     
     cv::Mat const& LogOddsMap() const { return m_matfMapLogOdds; }
-    cv::Mat const& GreyscaleMap() const { return m_matnMapGreyscale; }
+    cv::Mat const& ObstacleMap() const { return m_matnMapObstacle; }
     // cv::Mat const& ErodedMap() const { return m_matnMapEroded; }
     
     rbt::size<int> const m_szn;
@@ -33,7 +33,7 @@ struct COccupancyGrid {
     
 private:
     cv::Mat m_matfMapLogOdds;
-    cv::Mat m_matnMapGreyscale;
+    cv::Mat m_matnMapObstacle; // thresholded version of m_matfMapLogOdds
     // cv::Mat m_matnMapEroded;
 };
 

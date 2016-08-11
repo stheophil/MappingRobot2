@@ -71,18 +71,13 @@ void SParticle::update(SScanLine const& scanline) {
         });
 
     // OPTIMIZE: Recalculate occupancy grid after resampling?
-    // OPTIMIZE: COccupancyGrid does not need to create & update the greyscale map,
-    // instead, it might threshold on the fly.
     // OPTIMIZE: m_occgrid.update also sets occupancy of robot itself each time
     scanline.ForEachScan(m_pose, 
         [&](rbt::pose<double> const& poseScan, double fAngle, int nDistance) {
             m_occgrid.update(poseScan, fAngle, nDistance);
         });
 
-    // input to cv::threshold must be 8 bit greyscale image, so we cannot threshold m_occgrid.LogOddsMap() directly
-    cv::Mat matnThreshold(m_occgrid.GreyscaleMap().size(), CV_8UC1);
-    cv::threshold(m_occgrid.GreyscaleMap(), matnThreshold, /* pixels >= */ 0.0, /* are set to */ 255, cv::THRESH_BINARY);
-    cv::distanceTransform(matnThreshold, m_matLikelihood, CV_DIST_L2, CV_DIST_MASK_PRECISE); 
+    cv::distanceTransform(m_occgrid.ObstacleMap(), m_matLikelihood, CV_DIST_L2, CV_DIST_MASK_PRECISE); 
 }
 
 ///////////////////////
@@ -150,7 +145,7 @@ bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
 
 cv::Mat CParticleSLAM::getMap() const {
     ASSERT(m_itparticle!=m_vecparticle.end());
-    cv::Mat m = m_itparticle->m_occgrid.GreyscaleMap();
+    cv::Mat m = m_itparticle->m_occgrid.ObstacleMap();
     rbt::point<int> ptnPrev = m_itparticle->m_occgrid.toGridCoordinates(rbt::point<double>(0, 0));
     boost::for_each(m_vecpose, [&](rbt::pose<double> const& pose) {
         auto ptnGrid = m_itparticle->m_occgrid.toGridCoordinates(pose.m_pt);
