@@ -58,6 +58,8 @@ struct CParticleSLAM : rbt::nonmoveable {
     bool receivedSensorData(SSensorData const& data);
     cv::Mat getMap() const;
 
+    std::vector<rbt::pose<double>> const& Poses() const { return m_vecpose; } 
+
 private:
     std::vector<SParticle> m_vecparticle;
     std::vector<SParticle>::const_iterator m_itparticleBest;

@@ -8,6 +8,7 @@
 #include <opencv2/imgproc.hpp>
 #include <iostream>
 #include <random>
+#include <future>
 
 /////////////////////
 // SScanLine
@@ -105,18 +106,27 @@ bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
             ";" << m_scanline.translation().y << ") "
             "r = " << m_scanline.rotation());
 
-        int i = 0; 
-        double fWeightTotal = 0.0;
+        std::vector<std::future<double>> vecfuture;
         boost::for_each(m_vecparticle, [&](SParticle& p) {
-            p.update(m_scanline);
-            fWeightTotal += p.m_fWeight;
+            vecfuture.emplace_back( 
+                std::async(std::launch::async | std::launch::deferred,
+                    [&] {
+                        p.update(m_scanline);
+                        return p.m_fWeight;
+                    }
+                ));
+        }); 
 
+        double fWeightTotal = 0.0;
+        for(int i=0; i<vecfuture.size(); ++i) {
+            fWeightTotal += vecfuture[i].get();
+
+            auto const& p = m_vecparticle[i];
             LOG("Particle " << i << " -> " <<  
                 " pt = (" << p.m_pose.m_pt.x << "; " << p.m_pose.m_pt.y << ") " <<
                 " yaw =  " << p.m_pose.m_fYaw << 
                 " w = " << p.m_fWeight);
-            ++i;
-        });
+        }
 
         // Resampling
         // Thrun, Probabilistic robotics, p. 110

@@ -262,6 +262,8 @@ int main(int nArgs, char* aczArgs[]) {
 			cv::Size(400, 400) // TODO: Don't hardcode
 		);
 
+		auto const tpStart = std::chrono::system_clock::now();
+
 		CParticleSLAM rbt;
 		SSensorData data;
 
@@ -277,6 +279,12 @@ int main(int nArgs, char* aczArgs[]) {
 				vid << matTemp;
 			}
 		}
+		// TODO: Rest of last scan line?
+		auto const tpEnd = std::chrono::system_clock::now();
+ 		std::chrono::duration<double> durDiff = tpEnd-tpStart;
+		auto const poseFinal = rbt.Poses().back();
+		std::cout << durDiff.count() << " s\n"
+			<< " Final pose: ("<< poseFinal.m_pt.x  <<";"<< poseFinal.m_pt.y <<";" << poseFinal.m_fYaw << ")\n";
 
 		return 0;
 	} else if(vm.count(c_szPORT)) {

@@ -22,7 +22,7 @@ add_executable(robot
 	particle_slam.cpp)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Ofast")
 
 target_compile_options(robot PRIVATE --std=c++1y -Wall -Wno-unused-local-typedef)
 
