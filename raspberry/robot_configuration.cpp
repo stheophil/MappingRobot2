@@ -2,6 +2,7 @@
 #include "geometry.h"
 #include "particle_slam.h"
 #include "error_handling.h"
+#include "robot_configuration.h"
 
 #include <random>
 #include <opencv2/imgproc.hpp>
@@ -57,17 +58,24 @@ rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& s
     );
 } 
 
+rbt::point<int> ToGridCoordinate(rbt::point<double> const& pt) {
+    return rbt::point<int>(pt/c_nScale) + rbt::size<int>(c_nMapExtent, c_nMapExtent)/2;
+}
+
+rbt::point<int> ToWorldCoordinate(rbt::point<int> const& pt) {
+    return (pt - rbt::size<int>(c_nMapExtent, c_nMapExtent)/2) * c_nScale;
+}
+
 void ForEachCell(
     rbt::pose<double> const& pose, 
     double fRadAngle, int nDistance, 
     cv::Mat const& matGrid,
-    std::function<rbt::point<int> (rbt::point<double>)> ToGridPoint, 
     std::function<void(rbt::point<int> const&, float)> UpdateGrid  
 ) {
     cv::LineIterator itpt(
         matGrid, 
-        ToGridPoint(pose.m_pt), 
-        ToGridPoint(Obstacle(pose, fRadAngle, nDistance))
+        ToGridCoordinate(pose.m_pt), 
+        ToGridCoordinate(Obstacle(pose, fRadAngle, nDistance))
     );
     for(int i = 0; i < itpt.count; i++, ++itpt) {
         UpdateGrid(rbt::point<int>(itpt.pos()),  i<itpt.count-1 

@@ -37,8 +37,7 @@ void COccupancyGrid::update(rbt::pose<double> const& pose, double fRadAngle, int
     ForEachCell(
         pose, 
         fRadAngle, nDistance, 
-        m_matfMapLogOdds, 
-        std::bind(&COccupancyGrid::toGridCoordinates, this, std::placeholders::_1), 
+        m_matfMapLogOdds,  
         [this](rbt::point<int> const& pt, float fDeltaValue) {
             auto const fOdds = m_matfMapLogOdds.at<float>(pt.y, pt.x) + fDeltaValue;
             m_matfMapLogOdds.at<float>(pt.y, pt.x) = fOdds;
@@ -53,19 +52,11 @@ void COccupancyGrid::update(rbt::pose<double> const& pose, double fRadAngle, int
     // Clear position of robot itself
     rbt::size<double> const szfHalfSize(c_nRobotWidth/2.0, c_nRobotHeight/2.0);
     cv::Point const apt[] = {
-        toGridCoordinates(pose.m_pt - szfHalfSize.rotated(pose.m_fYaw)),
-        toGridCoordinates(pose.m_pt + rbt::size<double>(szfHalfSize.x, -szfHalfSize.y).rotated(pose.m_fYaw)),
-        toGridCoordinates(pose.m_pt + szfHalfSize.rotated(pose.m_fYaw)),
-        toGridCoordinates(pose.m_pt + rbt::size<double>(-szfHalfSize.x, szfHalfSize.y).rotated(pose.m_fYaw))
+        ToGridCoordinate(pose.m_pt - szfHalfSize.rotated(pose.m_fYaw)),
+        ToGridCoordinate(pose.m_pt + rbt::size<double>(szfHalfSize.x, -szfHalfSize.y).rotated(pose.m_fYaw)),
+        ToGridCoordinate(pose.m_pt + szfHalfSize.rotated(pose.m_fYaw)),
+        ToGridCoordinate(pose.m_pt + rbt::size<double>(-szfHalfSize.x, szfHalfSize.y).rotated(pose.m_fYaw))
     };
     cv::fillConvexPoly(m_matfMapLogOdds, apt, boost::size(apt), cv::Scalar(c_fOccupancyRover));
     cv::fillConvexPoly(m_matnMapObstacle, apt, boost::size(apt), cv::Scalar(255));
-}
-
-rbt::point<int> COccupancyGrid::toGridCoordinates(rbt::point<double> const& pt) const {
-    return rbt::point<int>(pt/c_nScale) + rbt::size<int>(c_nMapExtent, c_nMapExtent)/2;
-}
-
-rbt::point<int> COccupancyGrid::toWorldCoordinates(rbt::point<int> const& pt) const {
-    return (pt - rbt::size<int>(c_nMapExtent, c_nMapExtent)/2) * c_nScale;
 }

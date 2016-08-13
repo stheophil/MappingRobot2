@@ -73,7 +73,7 @@ void SParticle::update(SScanLine const& scanline) {
     // OPTIMIZE: Match fewer points
     m_fWeight = measurement_model_map(m_pose, scanline, 
         [this](rbt::point<double> const& pt) {
-            auto ptn = m_occgrid.toGridCoordinates(pt);
+            auto const ptn = ToGridCoordinate(pt);
             return static_cast<double>(m_matLikelihood.at<float>(ptn.y, ptn.x));
         });
 
@@ -161,9 +161,9 @@ bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
 cv::Mat CParticleSLAM::getMap() const {
     ASSERT(m_itparticleBest!=m_vecparticle.end());
     cv::Mat m = m_itparticleBest->m_occgrid.ObstacleMap();
-    rbt::point<int> ptnPrev = m_itparticleBest->m_occgrid.toGridCoordinates(rbt::point<double>(0, 0));
+    rbt::point<int> ptnPrev = ToGridCoordinate(rbt::point<double>(0, 0));
     boost::for_each(m_vecpose, [&](rbt::pose<double> const& pose) {
-        auto ptnGrid = m_itparticleBest->m_occgrid.toGridCoordinates(pose.m_pt);
+        auto const ptnGrid = ToGridCoordinate(pose.m_pt);
         cv::line(m, ptnPrev, ptnGrid, cv::Scalar(0));
         ptnPrev = ptnGrid;
     });
