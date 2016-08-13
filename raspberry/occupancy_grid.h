@@ -16,7 +16,7 @@
 #include <opencv2/core.hpp>
 
 struct COccupancyGrid {
-    COccupancyGrid(rbt::size<int> const& szn, int nScale);        
+    COccupancyGrid();        
     COccupancyGrid(COccupancyGrid const& occgrid);
     COccupancyGrid& operator=(COccupancyGrid const& occgrid);
 
@@ -27,9 +27,6 @@ struct COccupancyGrid {
     
     cv::Mat const& LogOddsMap() const { return m_matfMapLogOdds; }
     cv::Mat const& ObstacleMap() const { return m_matnMapObstacle; }
-    
-    rbt::size<int> m_szn;
-    int m_nScale; // cm per pixel
     
 private:
     cv::Mat m_matfMapLogOdds;

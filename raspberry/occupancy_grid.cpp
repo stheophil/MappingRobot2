@@ -17,25 +17,17 @@
 #include <boost/range/size.hpp>
 #include <opencv2/imgproc.hpp>
 
-COccupancyGrid::COccupancyGrid(rbt::size<int> const& szn, int nScale)
-:   m_szn(szn), 
-    m_nScale(nScale),
-    m_matfMapLogOdds(szn.x, szn.y, CV_32FC1, cv::Scalar(0.0f)),
-    m_matnMapObstacle(szn.x, szn.y, CV_8UC1, cv::Scalar(255))
-{
-    ASSERT(0==szn.x%2 && 0==szn.y%2);
-}
+COccupancyGrid::COccupancyGrid()
+:   m_matfMapLogOdds(c_nMapExtent, c_nMapExtent, CV_32FC1, cv::Scalar(0.0f)),
+    m_matnMapObstacle(c_nMapExtent, c_nMapExtent, CV_8UC1, cv::Scalar(255))
+{}
 
 COccupancyGrid::COccupancyGrid(COccupancyGrid const& occgrid) 
-:   m_szn(occgrid.m_szn), 
-    m_nScale(occgrid.m_nScale), 
-    m_matfMapLogOdds(occgrid.m_matfMapLogOdds.clone()),
+:   m_matfMapLogOdds(occgrid.m_matfMapLogOdds.clone()),
     m_matnMapObstacle(occgrid.m_matnMapObstacle.clone())
 {}
 
 COccupancyGrid& COccupancyGrid::operator=(COccupancyGrid const& occgrid) { 
-    m_szn=occgrid.m_szn; 
-    m_nScale=occgrid.m_nScale; 
     m_matfMapLogOdds=occgrid.m_matfMapLogOdds.clone();
     m_matnMapObstacle=occgrid.m_matnMapObstacle.clone();
     return *this;
@@ -71,9 +63,9 @@ void COccupancyGrid::update(rbt::pose<double> const& pose, double fRadAngle, int
 }
 
 rbt::point<int> COccupancyGrid::toGridCoordinates(rbt::point<double> const& pt) const {
-    return rbt::point<int>(pt/m_nScale) + m_szn/2;
+    return rbt::point<int>(pt/c_nScale) + rbt::size<int>(c_nMapExtent, c_nMapExtent)/2;
 }
 
 rbt::point<int> COccupancyGrid::toWorldCoordinates(rbt::point<int> const& pt) const {
-    return (pt - m_szn/2) * m_nScale;
+    return (pt - rbt::size<int>(c_nMapExtent, c_nMapExtent)/2) * c_nScale;
 }

@@ -12,12 +12,9 @@
 #include <boost/algorithm/cxx11/all_of.hpp>
 
 CRobotController::CRobotController()
-    : m_occgrid(rbt::size<int>(400, 400), /*nScale*/5) // = Map of 20m x 20m map
 {}
         
 void CRobotController::receivedSensorData(SSensorData const& data) {
-    // TODO: Queue sensor data, process in parallel
-
     auto const posePrev = m_vecpose.empty() 
         ? rbt::pose<double>(rbt::point<double>::zero(), InitialYaw(data))
         : m_vecpose.back();

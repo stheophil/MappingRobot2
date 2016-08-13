@@ -51,8 +51,7 @@ void SScanLine::clear() {
 // SParticle
 SParticle::SParticle() 
     : m_pose(rbt::pose<double>::zero()),
-    m_matLikelihood(400, 400, CV_32FC1, cv::Scalar(0)),
-    m_occgrid(rbt::size<int>(400, 400), /*nScale*/ 5) 
+    m_matLikelihood(c_nMapExtent, c_nMapExtent, CV_32FC1, cv::Scalar(0))
 {}
 
 SParticle::SParticle(SParticle const& p)

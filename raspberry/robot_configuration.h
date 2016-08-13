@@ -11,6 +11,9 @@ double InitialYaw(SSensorData const& sensordata);
 rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& sensordata); 
 
 // Occupancy grid
+int constexpr c_nScale = 5; // 5cm / px
+int constexpr c_nMapExtent = 400; // px ~ 20m
+
 void ForEachCell(
     rbt::pose<double> const& pose, 
     double fRadAngle, int nDistance, 

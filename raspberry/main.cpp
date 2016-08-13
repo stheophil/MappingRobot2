@@ -1,6 +1,7 @@
 #include "error_handling.h"
 #include "rover.h"
 #include "robot_controller.h"
+#include "robot_configuration.h"
 #include "particle_slam.h"
 
 #include <chrono>
@@ -259,7 +260,7 @@ int main(int nArgs, char* aczArgs[]) {
 		cv::VideoWriter vid(strLogFile + ".mov", 
 			cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 
 			5, 
-			cv::Size(400, 400) // TODO: Don't hardcode
+			cv::Size(c_nMapExtent, c_nMapExtent)
 		);
 
 		auto const tpStart = std::chrono::system_clock::now();
