@@ -22,9 +22,9 @@ add_executable(robot
 	particle_slam.cpp)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Ofast")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
-target_compile_options(robot PRIVATE --std=c++1y -Wall -Wno-unused-local-typedef)
+target_compile_options(robot PRIVATE --std=c++1y -DBOOST_RANGE_ENABLE_CONCEPT_ASSERT=0 -Wall -Wno-unused-local-typedef)
 
 target_link_libraries( robot 
 	${OpenCV_LIBS} 

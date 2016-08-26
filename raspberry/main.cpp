@@ -269,7 +269,7 @@ int main(int nArgs, char* aczArgs[]) {
 		SSensorData data;
 
 		// TODO: Move SSensorData output and input to robot_configuration.h
-		while(7==std::fscanf(fp, "%*lf;%hd;%hd;%hd;%hd;%hd;%hd;%hd\n", 
+		while(7==std::fscanf(fp, "%*f;%hd;%hd;%hd;%hd;%hd;%hd;%hd\n", 
 			&data.m_nYaw, &data.m_nAngle, &data.m_nDistance,
 			&data.m_anEncoderTicks[0], &data.m_anEncoderTicks[1], 
 			&data.m_anEncoderTicks[2], &data.m_anEncoderTicks[3])) 
