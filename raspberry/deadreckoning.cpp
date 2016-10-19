@@ -4,7 +4,6 @@
 #include "geometry.h"
 #include "nonmoveable.h"
 #include "occupancy_grid.h"
-#include "edge_following_strategy.h"
 #include "robot_configuration.h"
 
 #include <vector>

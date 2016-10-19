@@ -30,6 +30,7 @@ include_directories("libicp/src")
 add_executable(robot 
 	occupancy_grid.cpp
 	deadreckoning.cpp
+	scanline.cpp
 	main.cpp
 	error_handling.cpp
 	robot_configuration.cpp

@@ -1,6 +1,6 @@
 #include "error_handling.h"
 #include "rover.h"
-#include "robot_controller.h"
+#include "deadreckoning.h"
 #include "robot_configuration.h"
 #include "particle_slam.h"
 
@@ -265,7 +265,7 @@ int main(int nArgs, char* aczArgs[]) {
 
 		auto const tpStart = std::chrono::system_clock::now();
 
-		CParticleSLAM rbt;
+		SAccumulateScanline<CParticleSLAM> rbt;
 		SSensorData data;
 
 		// TODO: Move SSensorData output and input to robot_configuration.h

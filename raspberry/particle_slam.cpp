@@ -11,43 +11,6 @@
 #include <future>
 
 /////////////////////
-// SScanLine
-
-bool SScanLine::add(SSensorData const& data) {
-    if(m_vecscan.empty()) {
-        m_vecscan.emplace_back(UpdatePose(rbt::pose<double>::zero(), data), data.m_nAngle, data.m_nDistance);
-        return true;
-    } else {
-        auto CompareAngle = [](int lhs, int rhs) {
-            if(lhs<rhs) return -1;
-            if(rhs<lhs) return 1;
-            return 0;
-        };
-        auto const nCompare = CompareAngle(m_vecscan.front().m_nAngle, m_vecscan.back().m_nAngle);
-        auto const nCompareOther = CompareAngle(m_vecscan.back().m_nAngle, data.m_nAngle);
-        if(nCompare==0 || nCompareOther==0 || nCompare==nCompareOther) { 
-            // Lidar didn't change direction, add sensor to scanline
-            m_vecscan.emplace_back(UpdatePose(m_vecscan.back().m_pose, data), data.m_nAngle, data.m_nDistance);
-            return true;
-        } else {
-            return false; // start new scanline
-        }
-    }
-}
-
-rbt::size<double> SScanLine::translation() const {
-    return rbt::size<double>(m_vecscan.back().m_pose.m_pt);
-}
-
-double SScanLine::rotation() const {
-    return m_vecscan.back().m_pose.m_fYaw;
-}
-
-void SScanLine::clear() {
-    m_vecscan.clear();
-}
-
-/////////////////////
 // SParticle
 SParticle::SParticle() 
     : m_pose(rbt::pose<double>::zero()),
@@ -94,68 +57,60 @@ CParticleSLAM::CParticleSLAM(int cParticles)
 {}
 
 static std::random_device s_rd;
-bool CParticleSLAM::receivedSensorData(SSensorData const& data) {
+void CParticleSLAM::receivedSensorData(SScanLine const& scanline) {
     // TODO: Ignore data when robot is not moving for a long time
     
-    // add to scan line
-    if(!m_scanline.add(data)) { 
-        // if scanline full, update all particles,
-        LOG("Update particles");
-        LOG("t = (" << m_scanline.translation().x << 
-            ";" << m_scanline.translation().y << ") "
-            "r = " << m_scanline.rotation());
+    // if scanline full, update all particles,
+    LOG("Update particles");
+    LOG("t = (" << scanline.translation().x << 
+        ";" << scanline.translation().y << ") "
+        "r = " << scanline.rotation());
 
-        std::vector<std::future<double>> vecfuture;
-        boost::for_each(m_vecparticle, [&](SParticle& p) {
-            vecfuture.emplace_back( 
-                std::async(std::launch::async | std::launch::deferred,
-                    [&] {
-                        p.update(m_scanline);
-                        return p.m_fWeight;
-                    }
-                ));
-        }); 
+    std::vector<std::future<double>> vecfuture;
+    boost::for_each(m_vecparticle, [&](SParticle& p) {
+        vecfuture.emplace_back( 
+            std::async(std::launch::async | std::launch::deferred,
+                [&] {
+                    p.update(scanline);
+                    return p.m_fWeight;
+                }
+            ));
+    }); 
 
-        double fWeightTotal = 0.0;
-        for(int i=0; i<vecfuture.size(); ++i) {
-            fWeightTotal += vecfuture[i].get();
+    double fWeightTotal = 0.0;
+    for(int i=0; i<vecfuture.size(); ++i) {
+        fWeightTotal += vecfuture[i].get();
 
-            auto const& p = m_vecparticle[i];
-            LOG("Particle " << i << " -> " <<  
-                " pt = (" << p.m_pose.m_pt.x << "; " << p.m_pose.m_pt.y << ") " <<
-                " yaw =  " << p.m_pose.m_fYaw << 
-                " w = " << p.m_fWeight);
-        }
-
-        // Resampling
-        // Thrun, Probabilistic robotics, p. 110
-        auto const fStepSize = fWeightTotal/m_vecparticle.size();
-        auto const r = std::uniform_real_distribution<double>(0.0, fStepSize)(s_rd);
-        auto c = m_vecparticle.front().m_fWeight;
-
-        auto itparticleOut = m_vecparticleTemp.begin();
-        for(int i = 0, m = 0; m<m_vecparticle.size(); ++m) {
-            auto const u = r + m * fStepSize;
-            while(c<u) {
-                ++i;
-                c += m_vecparticle[i].m_fWeight;
-            }
-            LOG("Sample particle " << i);
-            *itparticleOut = m_vecparticle[i];
-            ++itparticleOut;
-        }
-        std::swap(m_vecparticle, m_vecparticleTemp);
-
-        m_itparticleBest = boost::max_element(
-            boost::adaptors::transform(m_vecparticle, std::mem_fn(&SParticle::m_fWeight))
-        ).base();
-        m_vecpose.emplace_back(m_itparticleBest->m_pose);
-
-        m_scanline.clear();
-        m_scanline.add(data);
-        return true;
+        auto const& p = m_vecparticle[i];
+        LOG("Particle " << i << " -> " <<  
+            " pt = (" << p.m_pose.m_pt.x << "; " << p.m_pose.m_pt.y << ") " <<
+            " yaw =  " << p.m_pose.m_fYaw << 
+            " w = " << p.m_fWeight);
     }
-    return false;
+
+    // Resampling
+    // Thrun, Probabilistic robotics, p. 110
+    auto const fStepSize = fWeightTotal/m_vecparticle.size();
+    auto const r = std::uniform_real_distribution<double>(0.0, fStepSize)(s_rd);
+    auto c = m_vecparticle.front().m_fWeight;
+
+    auto itparticleOut = m_vecparticleTemp.begin();
+    for(int i = 0, m = 0; m<m_vecparticle.size(); ++m) {
+        auto const u = r + m * fStepSize;
+        while(c<u) {
+            ++i;
+            c += m_vecparticle[i].m_fWeight;
+        }
+        LOG("Sample particle " << i);
+        *itparticleOut = m_vecparticle[i];
+        ++itparticleOut;
+    }
+    std::swap(m_vecparticle, m_vecparticleTemp);
+
+    m_itparticleBest = boost::max_element(
+        boost::adaptors::transform(m_vecparticle, std::mem_fn(&SParticle::m_fWeight))
+    ).base();
+    m_vecpose.emplace_back(m_itparticleBest->m_pose);
 }
 
 cv::Mat CParticleSLAM::getMap() const {
