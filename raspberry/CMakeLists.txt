@@ -12,6 +12,7 @@ find_package(OpenCV REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories("../arduino/src")
+include_directories("libicp/src")
 
 add_executable(robot 
 	occupancy_grid.cpp
@@ -19,7 +20,12 @@ add_executable(robot
 	main.cpp
 	error_handling.cpp
 	robot_configuration.cpp
-	particle_slam.cpp)
+	particle_slam.cpp
+	libicp/src/icp.cpp
+	libicp/src/icpPointToPlane.cpp
+	libicp/src/icpPointToPoint.cpp
+	libicp/src/kdtree.cpp
+	libicp/src/matrix.cpp)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
