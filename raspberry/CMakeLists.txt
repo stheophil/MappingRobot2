@@ -9,6 +9,19 @@ set(Boost_DEBUG ON)
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system program_options)
 find_package(OpenCV REQUIRED)
 
+# libicp uses openmp, it's not supported on the Mac, but is on the raspi
+option(USE_OPENMP "Enable OpenMP?" ON) # set to OFF to disable
+if(USE_OPENMP)
+ FIND_PACKAGE(OpenMP)
+ if(OPENMP_FOUND OR OpenMP_FOUND)
+  message(STATUS "OpenMP flags = ${OpenMP_CXX_FLAGS}")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+ else(OPENMP_FOUND OR OpenMP_FOUND)
+  message(STATUS "OpenMP not supported")
+ endif(OPENMP_FOUND OR OpenMP_FOUND)
+endif(USE_OPENMP)
+
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories("../arduino/src")
