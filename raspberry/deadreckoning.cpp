@@ -1,4 +1,4 @@
-#include "robot_controller.h"
+#include "deadreckoning.h"
 
 #include "math.h"
 #include "geometry.h"
@@ -11,10 +11,10 @@
 #include <chrono>
 #include <boost/algorithm/cxx11/all_of.hpp>
 
-CRobotController::CRobotController()
+CDeadReckoningMapping::CDeadReckoningMapping()
 {}
         
-void CRobotController::receivedSensorData(SSensorData const& data) {
+void CDeadReckoningMapping::receivedSensorData(SSensorData const& data) {
     auto const posePrev = m_vecpose.empty() 
         ? rbt::pose<double>(rbt::point<double>::zero(), InitialYaw(data))
         : m_vecpose.back();
@@ -25,6 +25,6 @@ void CRobotController::receivedSensorData(SSensorData const& data) {
     m_occgrid.update(poseNew, rbt::rad(data.m_nAngle), data.m_nDistance);    
 }
 
-cv::Mat const& CRobotController::getMap() {
+cv::Mat const& CDeadReckoningMapping::getMap() {
     return m_occgrid.ObstacleMap();
 }
