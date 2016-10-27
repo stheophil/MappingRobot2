@@ -52,12 +52,12 @@ void SParticle::update(SScanLine const& scanline) {
 
 ///////////////////////
 // SParticleSLAM
-CParticleSLAM::CParticleSLAM(int cParticles)
+CParticleSlamBase::CParticleSlamBase(int cParticles)
     : m_vecparticle(cParticles), m_itparticleBest(m_vecparticle.end()), m_vecparticleTemp(cParticles) 
 {}
 
 static std::random_device s_rd;
-void CParticleSLAM::receivedSensorData(SScanLine const& scanline) {
+void CParticleSlamBase::receivedSensorData(SScanLine const& scanline) {
     // TODO: Ignore data when robot is not moving for a long time
     
     // if scanline full, update all particles,
@@ -113,7 +113,7 @@ void CParticleSLAM::receivedSensorData(SScanLine const& scanline) {
     m_vecpose.emplace_back(m_itparticleBest->m_pose);
 }
 
-cv::Mat CParticleSLAM::getMap() const {
+cv::Mat CParticleSlamBase::getMap() const {
     ASSERT(m_itparticleBest!=m_vecparticle.end());
     cv::Mat m = m_itparticleBest->m_occgrid.ObstacleMap();
     rbt::point<int> ptnPrev = ToGridCoordinate(rbt::point<double>(0, 0));

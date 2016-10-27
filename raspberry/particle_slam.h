@@ -22,8 +22,8 @@ struct SParticle {
     void update(SScanLine const& scanline);
 };
 
-struct CParticleSLAM : rbt::nonmoveable {
-    CParticleSLAM(int cParticles = 100);
+struct CParticleSlamBase : rbt::nonmoveable {
+    CParticleSlamBase(int cParticles = 100);
     void receivedSensorData(SScanLine const& scanline);
     cv::Mat getMap() const;
 
@@ -36,3 +36,5 @@ private:
 
     std::vector<SParticle> m_vecparticleTemp;
 }; 
+
+using CParticleSLAM = SAccumulateScanline<CParticleSlamBase>;

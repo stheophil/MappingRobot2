@@ -265,7 +265,7 @@ int main(int nArgs, char* aczArgs[]) {
 
 		auto const tpStart = std::chrono::system_clock::now();
 
-		SAccumulateScanline<CParticleSLAM> rbt;
+		CParticleSLAM rbt;
 		SSensorData data;
 
 		// TODO: Move SSensorData output and input to robot_configuration.h
