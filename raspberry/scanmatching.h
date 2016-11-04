@@ -8,6 +8,11 @@
 #include <vector>
 #include <opencv2/core.hpp>
 
+// Build an occupancy grid map based on scan matching. 
+// Instead of relying on the odometry data alone, 
+// this algorithm estimates the robot position by matching 
+// the measured obstacles in each SScanLine against the 
+// existing occupancy grid. 
 struct CScanMatchingBase : rbt::nonmoveable {
     CScanMatchingBase();
     void receivedSensorData(SScanLine const& scanline);

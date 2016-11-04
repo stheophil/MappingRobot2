@@ -42,6 +42,7 @@ void CScanMatchingBase::receivedSensorData(SScanLine const& scanline) {
         }
     }
     
+    // Use libicp, an iterative closest point implementation (http://www.cvlibs.net/software/libicp/)
     IcpPointToPoint icp(&vecfModel[0], vecfModel.size()/2, 2);
 
     rbt::pose<double> poseNewCandidate(

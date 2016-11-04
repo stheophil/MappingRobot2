@@ -1,5 +1,4 @@
-#ifndef _rover_h
-#define _rover_h
+#pragma once
 
 #include <math.h>
 #include <assert.h>
@@ -44,4 +43,3 @@ struct SSensorData { // must be < 64 bytes
     short m_nDistance; // lidar distance in cm, in lidar frame of reference
     short m_anEncoderTicks[4]; // front left, front right, back left, back right
 };
-#endif

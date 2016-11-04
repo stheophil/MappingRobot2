@@ -1,10 +1,14 @@
-#ifndef robot_configuration
-#define robot_configuration
+#pragma once
 
 #include "rover.h"
 #include "geometry.h"
 
 // Robot configuration
+// All robot parameters are configurable here, as well as global parameters
+// such as the map dimensions, the map scaling factor etc. 
+
+// I've also collected the customization points for the implemented algorithms here, e.g.,
+// for the particle filter
 
 // Motion model
 double InitialYaw(SSensorData const& sensordata);
@@ -20,12 +24,6 @@ rbt::point<int> ToGridCoordinate(rbt::point<double> const& pt);
 rbt::point<int> ToWorldCoordinate(rbt::point<int> const& pt);
 rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance);
 
-void ForEachCell(
-    rbt::pose<double> const& pose, 
-    double fRadAngle, int nDistance, 
-    cv::Mat const& matGrid, 
-    std::function<void(rbt::point<int> const&, float)> UpdateGrid  
-);
 
 const int c_nRobotWidth = 30; // cm
 const int c_nRobotHeight = 30; // cm
@@ -35,5 +33,3 @@ const float c_fOccupancyRover = -100; // value in occupancy grid of positions oc
 struct SScanLine;
 rbt::pose<double> sample_motion_model(rbt::pose<double> const& pose, rbt::size<double> const& szf, double fRadAngle);
 double measurement_model_map(rbt::pose<double> const& pose, SScanLine const& scanline, std::function<double (rbt::point<double>)> Distance);
-
-#endif // robot_configuration

@@ -1,13 +1,4 @@
-//
-//  occupancy_grid.h
-//  robotcontrol2
-//
-//  Created by Sebastian Theophil on 24.09.15.
-//  Copyright © 2015 Sebastian Theophil. All rights reserved.
-//
-
-#ifndef occupancy_grid_h
-#define occupancy_grid_h
+#pragma once
 
 #include "rover.h"
 #include "nonmoveable.h"
@@ -15,12 +6,20 @@
 
 #include <opencv2/core.hpp>
 
+// An implementation of an occupancy grid, as described e.g. 
+// in Thrun et al, "Probabilistic Robotics"
 struct COccupancyGrid {
     COccupancyGrid();        
     COccupancyGrid(COccupancyGrid const& occgrid);
     COccupancyGrid& operator=(COccupancyGrid const& occgrid);
 
+    // Update the occupancy grid. 'pose' is the robot's pose. 
+    // The obstacle is assumed to be a pixel at polar coordinates (fAngle, nDistance)
+    // in robot's frame of reference.
     void update(rbt::pose<double> const& pose, double fAngle, int nDistance);
+
+    // Update the occupancy grid with a sequence of points. The obstacle points
+    // are in world coordinates
     void update(rbt::pose<double> const& pose, std::vector<rbt::point<double>> const& vecptf);
 
     cv::Mat const& LogOddsMap() const { return m_matfMapLogOdds; }
@@ -34,5 +33,3 @@ private:
     cv::Mat m_matfMapLogOdds;
     cv::Mat m_matnMapObstacle; // thresholded version of m_matfMapLogOdds
 };
-
-#endif /* occupancy_grid_h */

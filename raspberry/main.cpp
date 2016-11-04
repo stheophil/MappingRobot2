@@ -26,6 +26,12 @@ using namespace std::chrono_literals;
 
 #include "opencv2/opencv.hpp"
 
+/*  Configures stdin, so robot can be controlled with 
+	WASD keys from command line. 
+	Disables automatic echoing of input characters and 
+	disables "canonical" mode, which processes stdin
+	input line by line. 
+*/
 struct SConfigureStdin {
 	termios m_termOld;
 	
@@ -54,6 +60,13 @@ enum ECalibration {
 
 using FOnSensorData = std::function< boost::optional<SRobotCommand>(SSensorData const&) >;
 
+/*
+	Connection to robot using boost::asio 
+	Resets and syncs with connected robot microcontroller.
+	Receives sensor packets from robot microcontroller on serial port strPort, passes it on to func.
+	When the robot microcontroller sends yaw values from an attached IMU, it must be calibrated first.  
+	When manual robot control is enabled, processes WASD keyboard controls and sends them to microcontroller.
+*/
 struct SRobotConnection : SConfigureStdin {
 	SRobotConnection(boost::asio::io_service& io_service, std::string const& strPort, bool bManual, FOnSensorData func)
 		: m_io_service(io_service)
@@ -234,6 +247,14 @@ constexpr char c_szINPUT[] = "input-file";
 int main(int nArgs, char* aczArgs[]) {
 	namespace po = boost::program_options;
 
+	// We currently support two input modes
+	// - when 'input-file' is specified, we read the saved log data and can create
+	//	 a map from that log data without powering up the robot. Good for testing
+	//	 algorithms.
+	// - otherwise connect to microcontroller via serial port 'port'
+	//	 Currently, the robot can be controlled manually using the WASD keys and 
+	//	 the robot controller will send the sensor data which can be saved for
+	//	 later analysis
 	po::options_description optdesc("Allowed options");
 	optdesc.add_options()
 	    (c_szHELP, "Print help message")

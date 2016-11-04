@@ -3,6 +3,15 @@
 #include "geometry.h"
 #include "rover.h"
 
+// The robot microcontroller is reporting each individual Lidar measurement
+// We accumulate them in a SScanLine and can then process an entire 180 deg
+// scanline at a time.
+
+// The robot moves while the scan line is being accumulated and this is an
+// error source. SScanLine::add does consider the change in the robot's 
+// position but it can only use the odometry data to do so, which is imprecise.
+// In practice, the error depends on how fast the robot moves versus how
+// fast the Lidar turns.  
 struct SScanLine {
     struct SScan {
         SScan(rbt::pose<double> const& pose, int nAngle, int nDistance)
@@ -24,6 +33,9 @@ struct SScanLine {
     rbt::size<double> translation() const;
     double rotation() const;
 
+    // Process each scan in the scan line
+    // 'pose' is the best estimate of the current pose, based 
+    // on 'translation()' and 'rotation()'
     template<typename Func>
     void ForEachScan(rbt::pose<double> const& pose, Func fn) const {
         auto const& poseLast = m_vecscan.back().m_pose;

@@ -1,13 +1,4 @@
-//
-//  math.h
-//  rover
-//
-//  Created by Sebastian Theophil on 24.09.15.
-//
-//
-
-#ifndef math_h
-#define math_h
+#pragma once
 
 #include <type_traits>
 #include <limits>
@@ -54,5 +45,3 @@ namespace rbt {
     
     double angularDistance( double fAngleA, double fAngleB);
 }
-
-#endif /* math_h */

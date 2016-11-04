@@ -7,13 +7,15 @@
 #include <opencv2/core.hpp>
 #include "scanline.h"
 
+// Simple particle filter algorithm as described 
+// in Thrun et al "Probabilistic Robotics" p 478
 struct SParticle {
     rbt::pose<double> m_pose;
     
     double m_fWeight;
     cv::Mat m_matLikelihood; // likelihood field
     
-    COccupancyGrid m_occgrid; // without eroded map 
+    COccupancyGrid m_occgrid;
     
     SParticle();
     SParticle(SParticle const& p);
