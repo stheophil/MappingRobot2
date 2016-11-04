@@ -15,12 +15,6 @@ namespace {
     // y-axis points into direction of robot front
     rbt::size<double> const c_szfLidarOffset(0, 7); 
 
-    rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance) {
-        auto const szfLidar = rbt::size<double>::fromAngleAndDistance(fRadAngle, nDistance)
-            + c_szfLidarOffset;
-        return rbt::point<double>(pose.m_pt + szfLidar.rotated(pose.m_fYaw));
-    }
-
     double encoderTicksToRadians(short nTicks) { // Note: Formula depends on wheel encoders
         return nTicks * 6.0 * M_PI / 1000.0;
     }
@@ -66,23 +60,10 @@ rbt::point<int> ToWorldCoordinate(rbt::point<int> const& pt) {
     return (pt - rbt::size<int>(c_nMapExtent, c_nMapExtent)/2) * c_nScale;
 }
 
-void ForEachCell(
-    rbt::pose<double> const& pose, 
-    double fRadAngle, int nDistance, 
-    cv::Mat const& matGrid,
-    std::function<void(rbt::point<int> const&, float)> UpdateGrid  
-) {
-    cv::LineIterator itpt(
-        matGrid, 
-        ToGridCoordinate(pose.m_pt), 
-        ToGridCoordinate(Obstacle(pose, fRadAngle, nDistance))
-    );
-    for(int i = 0; i < itpt.count; i++, ++itpt) {
-        UpdateGrid(rbt::point<int>(itpt.pos()),  i<itpt.count-1 
-            ? -0.5 // free
-            : 20 // occupied  
-        );
-    }
+rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance) {
+    auto const szfLidar = rbt::size<double>::fromAngleAndDistance(fRadAngle, nDistance)
+        + c_szfLidarOffset;
+    return rbt::point<double>(pose.m_pt + szfLidar.rotated(pose.m_fYaw));
 }
 
 static std::random_device s_rd;

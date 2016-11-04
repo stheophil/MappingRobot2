@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 
 #include "math.h"
 #include "error_handling.h"
@@ -64,6 +65,11 @@ namespace rbt {
         bool operator==(point<T> const& rhs) const;
         
         operator cv::Point_<T>() const;
+
+        friend std::ostream& operator<<(std::ostream& os, rbt::point<T> const& pt) {
+            os << "(" << pt.x << "; " << pt.y << ")";
+            return os;
+        }
     };
     
     template<typename T>
@@ -107,6 +113,11 @@ namespace rbt {
 
         T Abs() const;
         T SqrAbs() const;
+
+        friend std::ostream& operator<<(std::ostream& os, rbt::size<T> const& sz) {
+            os << "(" << sz.x << "; " << sz.y << ")";
+            return os;
+        }
     };
     
     template<typename T>
@@ -145,6 +156,11 @@ namespace rbt {
 
         static pose<T> zero() {
             return pose<T>(point<T>::zero(), 0);
+        }
+ 
+        friend std::ostream& operator<<(std::ostream& os, rbt::pose<T> const& pose) {
+            os << "[" << pose.m_pt << "; " << pose.m_fYaw << "]";
+            return os;
         }
     };
 

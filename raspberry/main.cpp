@@ -3,6 +3,7 @@
 #include "deadreckoning.h"
 #include "robot_configuration.h"
 #include "particle_slam.h"
+#include "scanmatching.h"
 
 #include <chrono>
 #include <future>
@@ -265,7 +266,7 @@ int main(int nArgs, char* aczArgs[]) {
 
 		auto const tpStart = std::chrono::system_clock::now();
 
-		CParticleSLAM rbt;
+		CScanMatching rbt;
 		SSensorData data;
 
 		// TODO: Move SSensorData output and input to robot_configuration.h

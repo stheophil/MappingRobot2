@@ -13,9 +13,12 @@ rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& s
 // Occupancy grid
 int constexpr c_nScale = 5; // 5cm / px
 int constexpr c_nMapExtent = 400; // px ~ 20m
+double constexpr c_fOccupiedDelta = 20;
+double constexpr c_fFreeDelta = -0.5;
     
 rbt::point<int> ToGridCoordinate(rbt::point<double> const& pt);
 rbt::point<int> ToWorldCoordinate(rbt::point<int> const& pt);
+rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance);
 
 void ForEachCell(
     rbt::pose<double> const& pose, 

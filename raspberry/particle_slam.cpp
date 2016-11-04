@@ -81,11 +81,13 @@ void CParticleSlamBase::receivedSensorData(SScanLine const& scanline) {
     for(int i=0; i<vecfuture.size(); ++i) {
         fWeightTotal += vecfuture[i].get();
 
+#ifdef ENABLE_LOG
         auto const& p = m_vecparticle[i];
         LOG("Particle " << i << " -> " <<  
             " pt = (" << p.m_pose.m_pt.x << "; " << p.m_pose.m_pt.y << ") " <<
             " yaw =  " << p.m_pose.m_fYaw << 
             " w = " << p.m_fWeight);
+#endif            
     }
 
     // Resampling
@@ -115,12 +117,5 @@ void CParticleSlamBase::receivedSensorData(SScanLine const& scanline) {
 
 cv::Mat CParticleSlamBase::getMap() const {
     ASSERT(m_itparticleBest!=m_vecparticle.end());
-    cv::Mat m = m_itparticleBest->m_occgrid.ObstacleMap();
-    rbt::point<int> ptnPrev = ToGridCoordinate(rbt::point<double>(0, 0));
-    boost::for_each(m_vecpose, [&](rbt::pose<double> const& pose) {
-        auto const ptnGrid = ToGridCoordinate(pose.m_pt);
-        cv::line(m, ptnPrev, ptnGrid, cv::Scalar(0));
-        ptnPrev = ptnGrid;
-    });
-    return m;
+    return m_itparticleBest->m_occgrid.ObstacleMapWithPoses(m_vecpose);
 }

@@ -31,6 +31,7 @@ add_executable(robot
 	occupancy_grid.cpp
 	deadreckoning.cpp
 	scanline.cpp
+	scanmatching.cpp
 	main.cpp
 	error_handling.cpp
 	robot_configuration.cpp

@@ -1,5 +1,4 @@
-#ifndef _error_handling_h
-#define _error_handling_h
+#pragma once
 
 bool Verify(bool bResult, const char* szMessage, const char* szFile, int nLine);
 
@@ -7,6 +6,10 @@ bool Verify(bool bResult, const char* szMessage, const char* szFile, int nLine);
 #define VERIFYEQUAL(expr, result) Verify(expr==result, #expr, __FILE__, __LINE__)
 #define ASSERT(expr) (assert(expr))
 
-#define LOG(x)
+// #define ENABLE_LOG
 
+#ifdef ENABLE_LOG
+#define LOG(x) std::cout << (x) << std::endl;
+#else
+#define LOG(x)
 #endif
