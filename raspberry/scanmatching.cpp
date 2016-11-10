@@ -1,5 +1,6 @@
 #include "scanmatching.h"
 #include "robot_configuration.h"
+#include "occupancy_grid.inl"
 
 #include "icpPointToPoint.h"
 #include <opencv2/imgproc.hpp>

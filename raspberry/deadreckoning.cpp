@@ -3,7 +3,8 @@
 #include "math.h"
 #include "geometry.h"
 #include "nonmoveable.h"
-#include "occupancy_grid.h"
+#include "occupancy_grid.h" 
+#include "occupancy_grid.inl" 
 #include "robot_configuration.h"
 
 #include <vector>
