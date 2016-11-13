@@ -29,8 +29,19 @@ COccupancyGridBaseT<Derived>::COccupancyGridBaseT(COccupancyGridBaseT<Derived> c
 {}
 
 template<typename Derived>
+COccupancyGridBaseT<Derived>::COccupancyGridBaseT(COccupancyGridBaseT<Derived>&& occgrid) 
+:   m_matfMapLogOdds(occgrid.m_matfMapLogOdds)
+{}
+
+template<typename Derived>
 COccupancyGridBaseT<Derived>& COccupancyGridBaseT<Derived>::operator=(COccupancyGridBaseT<Derived> const& occgrid) { 
     m_matfMapLogOdds=occgrid.m_matfMapLogOdds.clone();
+    return *this;
+}
+
+template<typename Derived>
+COccupancyGridBaseT<Derived>& COccupancyGridBaseT<Derived>::operator=(COccupancyGridBaseT<Derived>&& occgrid) { 
+    m_matfMapLogOdds=occgrid.m_matfMapLogOdds;
     return *this;
 }
 

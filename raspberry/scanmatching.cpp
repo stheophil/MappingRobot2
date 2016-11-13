@@ -9,42 +9,97 @@
 #include <opencv2/imgcodecs/imgcodecs.hpp>     // cv::imread()
 #include <iostream>
 
-void DebugOutputScan(cv::Mat const& matObstacle, std::vector<double> const& vecptfTemplate) {
+void DebugOutputScan(cv::Mat const& matObstacle, std::vector<rbt::point<double>> const& vecptfTemplate, char const* szFile) {
     cv::Mat matDebug;
     cv::Mat amatInput[] = {matObstacle, matObstacle, matObstacle};
     cv::merge(amatInput, 3, matDebug);
 
     boost::for_each(vecptfTemplate, [&](rbt::point<double> const& ptf) {
-        auto ptn = ToGridCoordinate(ptf);
+        rbt::point<int> ptn(ptf);
         auto& vec = matDebug.at<cv::Vec3b>(ptn.y, ptn.x);
         vec.val[0] = 0;
         vec.val[1] = 0;
         vec.val[2] = 255;
     });
 
-    std::stringstream ss;
-    ss << "scanmatch" << c_nCount << "_b.png";
-    cv::imwrite(ss.str().c_str(), matDebug);
+    cv::imwrite(szFile, matDebug);
 }
 #endif
+
+COccupancyGridWithObstacleList::COccupancyGridWithObstacleList() noexcept : m_iEndSorted(0)  
+{}
+
+COccupancyGridWithObstacleList::COccupancyGridWithObstacleList(COccupancyGridWithObstacleList const& occgrid) noexcept
+    : COccupancyGridBaseT(occgrid)
+    , m_vecptfOccupied(occgrid.m_vecptfOccupied)
+    , m_iEndSorted(occgrid.m_iEndSorted)
+{}
+
+COccupancyGridWithObstacleList::COccupancyGridWithObstacleList(COccupancyGridWithObstacleList&& occgrid) noexcept
+    : COccupancyGridBaseT(occgrid)
+    , m_vecptfOccupied(std::move(occgrid.m_vecptfOccupied))
+    , m_iEndSorted(occgrid.m_iEndSorted)
+{}
+
+COccupancyGridWithObstacleList& COccupancyGridWithObstacleList::operator=(COccupancyGridWithObstacleList const& occgrid) noexcept {
+    COccupancyGridBaseT::operator=(occgrid);
+    m_vecptfOccupied = occgrid.m_vecptfOccupied;
+    m_iEndSorted = occgrid.m_iEndSorted;
+    return *this;
+}
+
+COccupancyGridWithObstacleList& COccupancyGridWithObstacleList::operator=(COccupancyGridWithObstacleList&& occgrid) noexcept {
+    COccupancyGridBaseT::operator=(occgrid);
+    m_vecptfOccupied = std::move(occgrid.m_vecptfOccupied);
+    m_iEndSorted = occgrid.m_iEndSorted;
+    return *this;
+}
+
+void COccupancyGridWithObstacleList::updateGrid(rbt::point<int> const& pt, double fOdds) {
+    auto itptfEndSorted =m_vecptfOccupied.begin()+m_iEndSorted;
+    rbt::point<double> const ptf(pt);
+    auto itpt = std::lower_bound(m_vecptfOccupied.begin(), itptfEndSorted, ptf);
+    if(0<fOdds) { // occupied point
+        if(itpt==m_vecptfOccupied.end() || *itpt!=ptf) {
+            m_vecptfOccupied.emplace_back(pt);
+        }
+    } else { // free point
+        if(itpt!=m_vecptfOccupied.end() && *itpt==ptf) {
+            std::swap(*itpt, *boost::prior(itptfEndSorted));
+            m_iEndSorted=itpt-m_vecptfOccupied.begin()+1;
+        }
+    }
+}
+
+void COccupancyGridWithObstacleList::finishedUpdate() {
+    auto itptfEndSorted =m_vecptfOccupied.begin()+m_iEndSorted;
+    std::sort(itptfEndSorted, m_vecptfOccupied.end());
+    m_vecptfOccupied.erase(std::unique(itptfEndSorted, m_vecptfOccupied.end()), m_vecptfOccupied.end());
+    std::inplace_merge(m_vecptfOccupied.begin(), itptfEndSorted, m_vecptfOccupied.end());
+    m_iEndSorted = m_vecptfOccupied.size();
+}
+
+cv::Mat COccupancyGridWithObstacleList::ObstacleMap() const {
+    cv::Mat mat; 
+    cv::threshold(m_matfMapLogOdds, mat, 0, 255.0, cv::THRESH_BINARY_INV);
+    
+    cv::Mat matn; 
+    mat.convertTo(matn, CV_8U);
+    return matn;
+}
+
+cv::Mat COccupancyGridWithObstacleList::ObstacleMapWithPoses(std::vector<rbt::pose<double>> const& vecpose) const {
+    return ::ObstacleMapWithPoses(ObstacleMap(), vecpose);
+}
 
 CScanMatchingBase::CScanMatchingBase() {
     m_vecpose.emplace_back(rbt::pose<double>::zero());
 }
 
 void CScanMatchingBase::receivedSensorData(SScanLine const& scanline) {
-    // TODO: Cache this too?
     // TODO: Use rotation matrix everywhere
-    std::vector<double> vecfModel;
-    for(auto it=m_occgrid.ObstacleMap().begin<std::uint8_t>(); it != m_occgrid.ObstacleMap().end<std::uint8_t>(); ++it) {
-        if(0==*it) {
-            vecfModel.emplace_back(it.pos().x);
-            vecfModel.emplace_back(it.pos().y);
-        }
-    }
-    
     // Use libicp, an iterative closest point implementation (http://www.cvlibs.net/software/libicp/)
-    IcpPointToPoint icp(&vecfModel[0], vecfModel.size()/2, 2);
+    IcpPointToPoint icp(&m_occgrid.m_vecptfOccupied[0].x, m_occgrid.m_vecptfOccupied.size(), 2);
 
     rbt::pose<double> poseNewCandidate(
         m_vecpose.back().m_pt + scanline.translation().rotated(m_vecpose.back().m_fYaw),
@@ -92,9 +147,9 @@ void CScanMatchingBase::receivedSensorData(SScanLine const& scanline) {
 
 #ifdef ENABLE_LOG
     {
-        std::stringstream ss;
-        ss << "scanmatch" << c_nCount << "_b.png";
-        DebugOutputScan(m_occgrid.ObstacleMap(), vecptfTemplate, ss.str().c_str());
+        // std::stringstream ss;
+        // ss << "scanmatch" << c_nCount << "_b.png";
+        // DebugOutputScan(m_occgrid.ObstacleMap(), vecptfTemplate, ss.str().c_str());
         ++c_nCount;
     }
 #endif
@@ -103,7 +158,7 @@ void CScanMatchingBase::receivedSensorData(SScanLine const& scanline) {
         m_vecpose.back(),
         vecptfTemplate
     );
-
+    m_occgrid.finishedUpdate();
 }
 
 cv::Mat CScanMatchingBase::getMap() const {

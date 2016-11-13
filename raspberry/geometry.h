@@ -22,7 +22,7 @@ namespace rbt {
 
     template<typename T>
     struct point :
-        boost::equality_comparable<point<T>,
+        boost::totally_ordered1<point<T>,
         boost::additive< point<T>, size<T>,
         boost::multiplicative< point<T>, T >>>
     {
@@ -54,6 +54,7 @@ namespace rbt {
         
         size<T> operator-(point<T> const& rhs) const;
         bool operator==(point<T> const& rhs) const;
+        bool operator<(point<T> const& rhs) const;
         
         operator cv::Point_<T>() const;
 
@@ -196,6 +197,13 @@ namespace rbt {
     template<typename T>
     bool point<T>::operator==(point<T> const& rhs) const {
         return x == rhs.x && y == rhs.y;
+    }
+
+    template<typename T>
+    bool point<T>::operator<(point<T> const& rhs) const {
+        if(x<rhs.x) return true;
+        if(rhs.x<x) return false;
+        return y < rhs.y;
     }
     
     template<typename T>

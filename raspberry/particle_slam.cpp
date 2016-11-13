@@ -1,6 +1,7 @@
 #include "particle_slam.h"
 #include "robot_configuration.h"
 #include "error_handling.h"
+#include "occupancy_grid.inl"
 
 #include <boost/range/algorithm/max_element.hpp>
 #include <boost/range/adaptor/transformed.hpp>

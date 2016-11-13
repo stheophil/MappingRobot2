@@ -12,7 +12,9 @@ template<typename Derived>
 struct COccupancyGridBaseT {
     COccupancyGridBaseT();        
     COccupancyGridBaseT(COccupancyGridBaseT const& occgrid);
+    COccupancyGridBaseT(COccupancyGridBaseT&& occgrid);
     COccupancyGridBaseT& operator=(COccupancyGridBaseT const& occgrid);
+    COccupancyGridBaseT& operator=(COccupancyGridBaseT&& occgrid);
 
     // Update the occupancy grid. 'pose' is the robot's pose. 
     // The obstacle is assumed to be a pixel at polar coordinates (fAngle, nDistance)
@@ -31,6 +33,8 @@ protected:
 
     cv::Mat m_matfMapLogOdds;
 };
+
+cv::Mat ObstacleMapWithPoses(cv::Mat const& matn, std::vector<rbt::pose<double>> const& vecpose);
 
 struct COccupancyGrid : COccupancyGridBaseT<COccupancyGrid> {
     COccupancyGrid();        

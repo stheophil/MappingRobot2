@@ -38,8 +38,7 @@ void COccupancyGrid::updateGridPoly(boost::iterator_range<rbt::point<int> const*
     cv::fillConvexPoly(m_matnMapObstacle, vecpt.data(), vecpt.size(), 0 < fOdds ? 0 : 255);
 }
 
-cv::Mat COccupancyGrid::ObstacleMapWithPoses(std::vector<rbt::pose<double>> const& vecpose) const {
-    cv::Mat m = ObstacleMap();
+cv::Mat ObstacleMapWithPoses(cv::Mat const& m, std::vector<rbt::pose<double>> const& vecpose) {
     rbt::point<int> ptnPrev = ToGridCoordinate(rbt::point<double>(0, 0));
     boost::for_each(vecpose, [&](rbt::pose<double> const& pose) {
         auto const ptnGrid = ToGridCoordinate(pose.m_pt);
@@ -47,4 +46,8 @@ cv::Mat COccupancyGrid::ObstacleMapWithPoses(std::vector<rbt::pose<double>> cons
         ptnPrev = ptnGrid;
     });
     return m;
+}
+
+cv::Mat COccupancyGrid::ObstacleMapWithPoses(std::vector<rbt::pose<double>> const& vecpose) const {
+    return ::ObstacleMapWithPoses(ObstacleMap(), vecpose);
 }

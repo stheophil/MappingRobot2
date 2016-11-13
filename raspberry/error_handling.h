@@ -9,7 +9,7 @@ bool Verify(bool bResult, const char* szMessage, const char* szFile, int nLine);
 // #define ENABLE_LOG
 
 #ifdef ENABLE_LOG
-#define LOG(x) std::cout << (x) << std::endl;
+#define LOG(x) std::cout << x << std::endl;
 #else
 #define LOG(x)
 #endif
