@@ -55,7 +55,14 @@ COccupancyGridWithObstacleList& COccupancyGridWithObstacleList::operator=(COccup
     return *this;
 }
 
-rbt::pose<double> COccupancyGridWithObstacleList::fit(rbt::pose<double> const& poseWorld, SScanLine const& scanline) const {
+rbt::pose<double> COccupancyGridWithObstacleList::fit(rbt::pose<double> const& poseWorld, SScanLine const& scanline) {
+    if(m_iEndSorted<m_vecptfOccupied.size()) {
+        auto itptfEndSorted = m_vecptfOccupied.begin()+m_iEndSorted;
+        std::sort(itptfEndSorted, m_vecptfOccupied.end());
+        m_vecptfOccupied.erase(std::unique(itptfEndSorted, m_vecptfOccupied.end()), m_vecptfOccupied.end());
+        std::inplace_merge(m_vecptfOccupied.begin(), itptfEndSorted, m_vecptfOccupied.end());
+        m_iEndSorted = m_vecptfOccupied.size();
+    }
     
     std::vector<rbt::point<double>> vecptfTemplate;
     scanline.ForEachScan(poseWorld, [&](rbt::pose<double> const& poseScan, double fRadAngle, int nDistance) {
@@ -121,13 +128,6 @@ void COccupancyGridWithObstacleList::updateGrid(rbt::point<int> const& pt, doubl
     }
 }
 
-void COccupancyGridWithObstacleList::finishedUpdate() {
-    auto itptfEndSorted =m_vecptfOccupied.begin()+m_iEndSorted;
-    std::sort(itptfEndSorted, m_vecptfOccupied.end());
-    m_vecptfOccupied.erase(std::unique(itptfEndSorted, m_vecptfOccupied.end()), m_vecptfOccupied.end());
-    std::inplace_merge(m_vecptfOccupied.begin(), itptfEndSorted, m_vecptfOccupied.end());
-    m_iEndSorted = m_vecptfOccupied.size();
-}
 
 cv::Mat COccupancyGridWithObstacleList::ObstacleMap() const {
     cv::Mat mat; 
@@ -157,8 +157,6 @@ void CScanMatchingBase::receivedSensorData(SScanLine const& scanline) {
     scanline.ForEachScan(m_vecpose.back(), [&](rbt::pose<double> const& poseScan, double fRadAngle, int nDistance) {
         m_occgrid.update(poseScan, fRadAngle, nDistance);
     });
-    m_occgrid.finishedUpdate();
-
 }
 
 cv::Mat CScanMatchingBase::getMap() const {

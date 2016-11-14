@@ -21,9 +21,7 @@ struct COccupancyGridWithObstacleList : COccupancyGridBaseT<COccupancyGridWithOb
     COccupancyGridWithObstacleList& operator=(COccupancyGridWithObstacleList const& occgrid) noexcept;
     COccupancyGridWithObstacleList& operator=(COccupancyGridWithObstacleList&& occgrid) noexcept;
 
-    rbt::pose<double> fit(rbt::pose<double> const& poseWorld, SScanLine const& scanline) const;
-
-    void finishedUpdate();
+    rbt::pose<double> fit(rbt::pose<double> const& poseWorld, SScanLine const& scanline);
 
     cv::Mat ObstacleMap() const;
     cv::Mat ObstacleMapWithPoses(std::vector<rbt::pose<double>> const& vecpose) const;
