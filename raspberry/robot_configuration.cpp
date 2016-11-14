@@ -56,8 +56,8 @@ rbt::point<int> ToGridCoordinate(rbt::point<double> const& pt) {
     return rbt::point<int>(pt/c_nScale) + rbt::size<int>(c_nMapExtent, c_nMapExtent)/2;
 }
 
-rbt::point<int> ToWorldCoordinate(rbt::point<int> const& pt) {
-    return (pt - rbt::size<int>(c_nMapExtent, c_nMapExtent)/2) * c_nScale;
+rbt::pose<int> ToGridCoordinate(rbt::pose<double> const& pose) {
+    return rbt::pose<int>( ToGridCoordinate(pose.m_pt), pose.m_fYaw );
 }
 
 rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance) {

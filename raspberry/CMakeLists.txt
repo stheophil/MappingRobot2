@@ -27,19 +27,31 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories("../arduino/src")
 include_directories("libicp/src")
 
-add_executable(robot 
+add_executable(robot
+    occupancy_grid.h
 	occupancy_grid.cpp
+	deadreckoning.h
 	deadreckoning.cpp
+    scanline.h
 	scanline.cpp
+    scanmatching.h
 	scanmatching.cpp
 	main.cpp
+    error_handling.h
 	error_handling.cpp
+    robot_configuration.h
 	robot_configuration.cpp
+    particle_slam.h
 	particle_slam.cpp
+	libicp/src/icp.h
 	libicp/src/icp.cpp
+	libicp/src/icpPointToPlane.h
 	libicp/src/icpPointToPlane.cpp
+	libicp/src/icpPointToPoint.h
 	libicp/src/icpPointToPoint.cpp
+	libicp/src/kdtree.h
 	libicp/src/kdtree.cpp
+	libicp/src/matrix.h
 	libicp/src/matrix.cpp)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")

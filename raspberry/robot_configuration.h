@@ -21,7 +21,18 @@ double constexpr c_fOccupiedDelta = 20;
 double constexpr c_fFreeDelta = -0.5;
     
 rbt::point<int> ToGridCoordinate(rbt::point<double> const& pt);
-rbt::point<int> ToWorldCoordinate(rbt::point<int> const& pt);
+rbt::pose<int> ToGridCoordinate(rbt::pose<double> const& pose);
+    
+template<typename T>
+rbt::point<T> ToWorldCoordinate(rbt::point<T> const& pt) {
+    return (pt - rbt::size<T>(c_nMapExtent, c_nMapExtent)/2) * c_nScale;
+}
+
+template<typename T>
+rbt::pose<T> ToWorldCoordinate(rbt::pose<T> const& pose) {
+    return rbt::pose<T>(ToWorldCoordinate(pose.m_pt), pose.m_fYaw);
+}
+
 rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance);
 
 

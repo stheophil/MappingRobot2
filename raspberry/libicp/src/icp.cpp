@@ -22,7 +22,7 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 using namespace std;
 
-Icp::Icp (double *M,const int32_t M_num,const int32_t dim) :
+Icp::Icp (double const* M,const int32_t M_num,const int32_t dim) :
   dim(dim), max_iter(200), min_delta(1e-4) {
   
   // check for correct dimensionality

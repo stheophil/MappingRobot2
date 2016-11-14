@@ -21,7 +21,7 @@ struct COccupancyGridWithObstacleList : COccupancyGridBaseT<COccupancyGridWithOb
     COccupancyGridWithObstacleList& operator=(COccupancyGridWithObstacleList const& occgrid) noexcept;
     COccupancyGridWithObstacleList& operator=(COccupancyGridWithObstacleList&& occgrid) noexcept;
 
-    rbt::pose<double> fit(rbt::pose<double> const& poseTransform, std::vector<rbt::point<double>> const& vecptfTemplate) const;
+    rbt::pose<double> fit(rbt::pose<double> const& poseWorld, SScanLine const& scanline) const;
 
     void finishedUpdate();
 
@@ -32,6 +32,7 @@ struct COccupancyGridWithObstacleList : COccupancyGridBaseT<COccupancyGridWithOb
     void updateGrid(rbt::point<int> const& pt, double fOdds);
     void updateGridPoly(boost::iterator_range<rbt::point<int> const*> rngpt, double fOdds) {}
 
+private:
     std::vector<rbt::point<double>> m_vecptfOccupied;
     std::size_t m_iEndSorted;
 };

@@ -145,7 +145,11 @@ namespace rbt {
         pose(point<T> const& pt, double fYaw)
             : m_pt(pt), m_fYaw(fYaw)
         {}
-
+        template<typename S>
+        pose(pose<S> const& pose)
+        : m_pt(pose.m_pt), m_fYaw(pose.m_fYaw)
+        {}
+        
         static pose<T> zero() {
             return pose<T>(point<T>::zero(), 0);
         }

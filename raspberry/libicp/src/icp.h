@@ -38,7 +38,7 @@ public:
   // input: M ....... pointer to first model point
   //        M_num ... number of model points
   //        dim   ... dimensionality of model points (2 or 3)
-  Icp (double *M,const int32_t M_num,const int32_t dim);
+  Icp (double const* M,const int32_t M_num,const int32_t dim);
   
   // deconstructor
   virtual ~Icp ();
