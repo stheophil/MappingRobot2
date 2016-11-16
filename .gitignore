@@ -4,8 +4,10 @@ CMakeCache.txt
 CMakeFiles
 CMakeScripts
 
+# ignore folders used to generate Makefile / Xcode projects
 raspberry/Makefile
 raspberry/build
+raspberry/xcode
 raspberry/*.xcodeproj
 
 cmake_install.cmake
