@@ -5,7 +5,9 @@
 #include "icpPointToPoint.h"
 #include <opencv2/imgproc.hpp>
 
-#ifdef ENABLE_LOG
+// #define ENABLE_SCANMATCH_LOG
+
+#ifdef ENABLE_SCANMATCH_LOG
 #include <opencv2/imgcodecs/imgcodecs.hpp>     // cv::imread()
 #include <iostream>
 
@@ -49,7 +51,7 @@ COccupancyGridWithObstacleList& COccupancyGridWithObstacleList::operator=(COccup
 }
 
 COccupancyGridWithObstacleList& COccupancyGridWithObstacleList::operator=(COccupancyGridWithObstacleList&& occgrid) noexcept {
-    COccupancyGridBaseT::operator=(occgrid);
+    COccupancyGridBaseT::operator=(std::move(occgrid));
     m_vecptfOccupied = std::move(occgrid.m_vecptfOccupied);
     m_iEndSorted = occgrid.m_iEndSorted;
     return *this;
@@ -64,12 +66,14 @@ rbt::pose<double> COccupancyGridWithObstacleList::fit(rbt::pose<double> const& p
         m_iEndSorted = m_vecptfOccupied.size();
     }
     
+    if(m_vecptfOccupied.size()<10) return poseWorld;
+    
     std::vector<rbt::point<double>> vecptfTemplate;
     scanline.ForEachScan(poseWorld, [&](rbt::pose<double> const& poseScan, double fRadAngle, int nDistance) {
         vecptfTemplate.emplace_back(ToGridCoordinate(Obstacle(poseScan, fRadAngle, nDistance)));
     });
         
-#ifdef ENABLE_LOG
+#ifdef ENABLE_SCANMATCH_LOG
     static int c_nCount = 0;
     {
         std::stringstream ss;
@@ -77,8 +81,6 @@ rbt::pose<double> COccupancyGridWithObstacleList::fit(rbt::pose<double> const& p
         DebugOutputScan(ObstacleMap(), vecptfTemplate, ss.str().c_str());
     }
     LOG(c_nCount);
-    LOG(" Pose estimate = " << poseWorld);
-    LOG(" t = " << scanline.translation() << " phi = " << scanline.rotation());
 #endif
         
     rbt::pose<double> poseGrid(ToGridCoordinate(poseWorld));
@@ -91,9 +93,11 @@ rbt::pose<double> COccupancyGridWithObstacleList::fit(rbt::pose<double> const& p
     // Use libicp, an iterative closest point implementation (http://www.cvlibs.net/software/libicp/)
     IcpPointToPoint icp(&m_vecptfOccupied[0].x, m_vecptfOccupied.size(), 2);
     icp.fit(&vecptfTemplate[0].x,vecptfTemplate.size(), R, t, 250);
-        
+    
+#ifdef ENABLE_SCANMATCH_LOG
     LOG("ICP: R = " << R << " t = " << t);
-        
+#endif
+
     // Pose from transformation matrix
     Matrix vecLastPose = (R * Matrix(2, 1, &poseGrid.m_pt.x)) + t;
     rbt::pose<double> const poseWorldCorrected(
@@ -104,8 +108,19 @@ rbt::pose<double> COccupancyGridWithObstacleList::fit(rbt::pose<double> const& p
             )
         ));
     
-#ifdef ENABLE_LOG
+#ifdef ENABLE_SCANMATCH_LOG
     LOG(" Corrected Pose: " << poseWorldCorrected);
+     {
+     
+        std::vector<rbt::point<double>> vecptfTemplateCorrected;
+        scanline.ForEachScan(poseWorldCorrected, [&](rbt::pose<double> const& poseScan, double fRadAngle, int nDistance) {
+            vecptfTemplateCorrected.emplace_back(ToGridCoordinate(Obstacle(poseScan, fRadAngle, nDistance)));
+        });
+
+        std::stringstream ss;
+        ss << "scanmatch" << c_nCount << "_b.png";
+        DebugOutputScan(ObstacleMap(), vecptfTemplateCorrected, ss.str().c_str());
+    }
     ++c_nCount;
 #endif
 

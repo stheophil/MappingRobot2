@@ -46,6 +46,11 @@ COccupancyGridBaseT<Derived>& COccupancyGridBaseT<Derived>::operator=(COccupancy
 }
 
 template<typename Derived>
+bool COccupancyGridBaseT<Derived>::occupied(rbt::point<int> const& pt) const {
+    return 0<m_matfMapLogOdds.at<float>(pt.y, pt.x);
+}
+
+template<typename Derived>
 void COccupancyGridBaseT<Derived>::internalUpdatePerObstacle(rbt::point<double> const& ptf, rbt::point<double> const& ptfObstacle) {
     cv::LineIterator itpt(
         m_matfMapLogOdds, 

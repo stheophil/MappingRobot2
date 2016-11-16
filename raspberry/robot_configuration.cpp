@@ -60,8 +60,8 @@ rbt::pose<int> ToGridCoordinate(rbt::pose<double> const& pose) {
     return rbt::pose<int>( ToGridCoordinate(pose.m_pt), pose.m_fYaw );
 }
 
-rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance) {
-    auto const szfLidar = rbt::size<double>::fromAngleAndDistance(fRadAngle, nDistance)
+rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, double fDistance) {
+    auto const szfLidar = rbt::size<double>::fromAngleAndDistance(fRadAngle, fDistance)
         + c_szfLidarOffset;
     return rbt::point<double>(pose.m_pt + szfLidar.rotated(pose.m_fYaw));
 }
@@ -109,7 +109,7 @@ double measurement_model_map(rbt::pose<double> const& pose,
     double const z_hit = 0.9;
     double const z_rand = 0.1;
 
-    double const c_fSensorSigma = 2; // ~ +-10cm with current map scale  
+    double const c_fSensorSigma = 2; // ~ +-10cm with current map scale, in grid coordinates
 
     double fWeight = 1.0;
     scanline.ForEachScan(pose, [&](rbt::pose<double> const& poseScan, double fAngle, int nDistance) {

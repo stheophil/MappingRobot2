@@ -2,6 +2,7 @@
 
 #include "rover.h"
 #include "geometry.h"
+#include "scanline.h"
 
 // Robot configuration
 // All robot parameters are configurable here, as well as global parameters
@@ -33,7 +34,7 @@ rbt::pose<T> ToWorldCoordinate(rbt::pose<T> const& pose) {
     return rbt::pose<T>(ToWorldCoordinate(pose.m_pt), pose.m_fYaw);
 }
 
-rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, int nDistance);
+rbt::point<double> Obstacle(rbt::pose<double> const& pose, double fRadAngle, double nDistance);
 
 
 const int c_nRobotWidth = 30; // cm
@@ -41,6 +42,50 @@ const int c_nRobotHeight = 30; // cm
 const float c_fOccupancyRover = -100; // value in occupancy grid of positions occupied by rover itself
 
 // Particle filter
-struct SScanLine;
 rbt::pose<double> sample_motion_model(rbt::pose<double> const& pose, rbt::size<double> const& szf, double fRadAngle);
 double measurement_model_map(rbt::pose<double> const& pose, SScanLine const& scanline, std::function<double (rbt::point<double>)> Distance);
+
+const double c_fSqrt2 = std::sqrt(2);
+
+template<typename TOccupancyGrid>
+double log_likelihood_field(rbt::pose<double> const& pose, SScanLine const& scanline, TOccupancyGrid const& occgrid) {
+    // See ScanMatcher::likelihoodAndScore in https://svn.openslam.org/data/svn/gmapping/trunk/scanmatcher/scanmatcher.h
+    // For every detected obstacle point, iterate over a small kernel to find the obstacle in the map matLogLikelihood
+    // closest to the expected position
+    double const c_fSensorSigma = 10; // ~ +-10cm
+    
+    double fLogLikelihood = 0.0;
+    scanline.ForEachScan(pose, [&](rbt::pose<double> const& poseScan, double fAngle, int nDistance) {
+        auto ptfOccupied = Obstacle(poseScan, fAngle, nDistance);
+        auto ptfFree = Obstacle(poseScan, fAngle, nDistance - c_nScale*c_fSqrt2);
+        
+        auto const ptnOccupied = ToGridCoordinate(ptfOccupied);
+        auto const ptnFree = ToGridCoordinate(ptfFree);
+        
+        double fSqrDistBest = std::numeric_limits<double>::max();
+        for(int nOffsetX = -1; nOffsetX<2; ++nOffsetX) {
+            for(int nOffsetY = -1; nOffsetY<2; ++nOffsetY) {
+                rbt::size<int> szn(nOffsetX, nOffsetY);
+                
+                auto const ptnOccOff = ptnOccupied + szn;
+                auto const ptnFreeOff = ptnFree + szn;
+                
+                // Checking not only for the occupied point but also for the neighboring
+                // free point is also taken from gmapping implementation
+                if(occgrid.occupied(ptnOccOff) && !occgrid.occupied(ptnFreeOff)) {
+                    double fSqrDist = (ptfOccupied - rbt::point<double>(ToWorldCoordinate(ptnOccOff))).SqrAbs();
+                    if(fSqrDist < fSqrDistBest) {
+                        fSqrDistBest = fSqrDist;
+                    }
+                }
+            }
+        }
+        
+        if(fSqrDistBest<std::numeric_limits<double>::max()) {
+            fLogLikelihood+=(-1./c_fSensorSigma)*fSqrDistBest;
+        } else {
+            fLogLikelihood+=-60./c_fSensorSigma; // FIXME
+        }
+    });
+    return fLogLikelihood;
+}

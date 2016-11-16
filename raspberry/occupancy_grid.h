@@ -26,7 +26,8 @@ struct COccupancyGridBaseT {
     void update(rbt::pose<double> const& pose, std::vector<rbt::point<double>> const& vecptf);
 
     cv::Mat const& LogOddsMap() const { return m_matfMapLogOdds; }
-    
+    bool occupied(rbt::point<int> const& pt) const;
+
 protected:
     void internalUpdatePerObstacle(rbt::point<double> const& ptf, rbt::point<double> const& ptfObstacle);
     void internalUpdatePerPose(rbt::pose<double> const& pose);

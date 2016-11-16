@@ -29,6 +29,7 @@ include_directories("libicp/src")
 
 add_executable(robot
     occupancy_grid.h
+    occupancy_grid.inl
 	occupancy_grid.cpp
 	deadreckoning.h
 	deadreckoning.cpp
@@ -41,6 +42,8 @@ add_executable(robot
 	error_handling.cpp
     robot_configuration.h
 	robot_configuration.cpp
+    fast_particle_slam.h
+    fast_particle_slam.cpp
     particle_slam.h
 	particle_slam.cpp
 	libicp/src/icp.h
