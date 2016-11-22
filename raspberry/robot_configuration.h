@@ -18,9 +18,10 @@ rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& s
 // Occupancy grid
 int constexpr c_nScale = 5; // 5cm / px
 int constexpr c_nMapExtent = 400; // px ~ 20m
-double constexpr c_fOccupiedDelta = 20;
+double constexpr c_fOccupiedDelta = 2;
 double constexpr c_fFreeDelta = -0.5;
-    
+double constexpr c_fFreeThreshold = 1;
+
 rbt::point<int> ToGridCoordinate(rbt::point<double> const& pt);
 rbt::pose<int> ToGridCoordinate(rbt::pose<double> const& pose);
     
@@ -55,6 +56,10 @@ double log_likelihood_field(rbt::pose<double> const& pose, SScanLine const& scan
     double const c_fSensorSigma = 10; // ~ +-10cm
     
     double fLogLikelihood = 0.0;
+    
+#ifdef ENABLE_LOG
+    int nCountObstacle = 0;
+#endif
     scanline.ForEachScan(pose, [&](rbt::pose<double> const& poseScan, double fAngle, int nDistance) {
         auto ptfOccupied = Obstacle(poseScan, fAngle, nDistance);
         auto ptfFree = Obstacle(poseScan, fAngle, nDistance - c_nScale*c_fSqrt2);
@@ -83,9 +88,18 @@ double log_likelihood_field(rbt::pose<double> const& pose, SScanLine const& scan
         
         if(fSqrDistBest<std::numeric_limits<double>::max()) {
             fLogLikelihood+=(-1./c_fSensorSigma)*fSqrDistBest;
+            
+#ifdef ENABLE_LOG
+            ++nCountObstacle;
+#endif
         } else {
             fLogLikelihood+=-60./c_fSensorSigma; // FIXME
         }
     });
+    
+    
+#ifdef ENABLE_LOG
+    LOG("Matched " << nCountObstacle << " obstacles");
+#endif
     return fLogLikelihood;
 }

@@ -27,7 +27,7 @@ void SFastSlamParticle::updatePose(SScanLine const& scanline) {
     // 3. Compute likelihood of resulting match
     // gmapping computes log likelihood, also skips distanceTransform and searches
     // in small kernel around expected obstacle
-    m_fLogWeight = log_likelihood_field(m_pose, scanline, m_occgrid);
+    m_fLogWeight += log_likelihood_field(m_pose, scanline, m_occgrid);
     
     LOG("Update Particle: poseSampled = " << poseSampled << " m_pose = " << m_pose << " m_fLogWeight = " << m_fLogWeight << "\n");
 }
@@ -107,6 +107,7 @@ void CFastParticleSlamBase::receivedSensorData(SScanLine const& scanline) {
             } else {
                 *itparticleOut = m_vecparticle[*itn];
             }
+            itparticleOut->m_fLogWeight = 0.0;
             ++itparticleOut;
         }
         std::swap(m_vecparticle, vecparticle);

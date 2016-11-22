@@ -38,7 +38,7 @@ COccupancyGridWithObstacleList::COccupancyGridWithObstacleList(COccupancyGridWit
 {}
 
 COccupancyGridWithObstacleList::COccupancyGridWithObstacleList(COccupancyGridWithObstacleList&& occgrid) noexcept
-    : COccupancyGridBaseT(occgrid)
+    : COccupancyGridBaseT(std::move(occgrid))
     , m_vecptfOccupied(std::move(occgrid.m_vecptfOccupied))
     , m_iEndSorted(occgrid.m_iEndSorted)
 {}
@@ -131,7 +131,7 @@ void COccupancyGridWithObstacleList::updateGrid(rbt::point<int> const& pt, doubl
     auto itptfEndSorted =m_vecptfOccupied.begin()+m_iEndSorted;
     rbt::point<double> const ptf(pt);
     auto itpt = std::lower_bound(m_vecptfOccupied.begin(), itptfEndSorted, ptf);
-    if(0<fOdds) { // occupied point
+    if(c_fFreeThreshold<fOdds) { // occupied point
         if(itpt==m_vecptfOccupied.end() || *itpt!=ptf) {
             m_vecptfOccupied.emplace_back(pt);
         }
