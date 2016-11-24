@@ -42,6 +42,7 @@ add_executable(robot
 	error_handling.cpp
     robot_configuration.h
 	robot_configuration.cpp
+	robot_connection.cpp
     fast_particle_slam.h
     fast_particle_slam.cpp
     particle_slam.h
