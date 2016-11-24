@@ -244,7 +244,12 @@ constexpr char c_szHELP[] = "help";
 constexpr char c_szPORT[] = "port";
 constexpr char c_szLOG[] = "log";
 constexpr char c_szMANUAL[] = "manual";
+
 constexpr char c_szINPUT[] = "input-file";
+constexpr char c_szVIDEO[] = "video";
+constexpr char c_szOUTPUT[] = "out";
+
+int ParseLogFile(std::FILE* fp, bool bVideo, boost::optional<std::string> const& ostrOutput);
 
 int main(int nArgs, char* aczArgs[]) {
 	namespace po = boost::program_options;
@@ -257,61 +262,47 @@ int main(int nArgs, char* aczArgs[]) {
 	//	 Currently, the robot can be controlled manually using the WASD keys and 
 	//	 the robot controller will send the sensor data which can be saved for
 	//	 later analysis
-	po::options_description optdesc("Allowed options");
-	optdesc.add_options()
+	po::options_description optdescGeneric("Allowed options");
+	optdescGeneric.add_options()
 	    (c_szHELP, "Print help message")
-	    (c_szPORT, po::value<std::string>(), "The serial port that is connected to the robot.")
-	    (c_szLOG, po::value<std::string>(), "Log file")
-	    (c_szMANUAL, "Control robot manually")
-	    (c_szINPUT, po::value<std::string>(), "Read sensor data from input file instead of connecting to robot via serial port");
+	    (c_szPORT, po::value<std::string>()->value_name("p"), "Connect to robot on port <p>")
+	    (c_szINPUT, po::value<std::string>()->value_name("file"), "Read sensor data from input file <file>");
 
+	po::options_description optdescRobot("Robot options");
+	optdescRobot.add_options()
+	    (c_szLOG, po::value<std::string>()->value_name("file"), "Log all sensor data to <file>")
+	    (c_szMANUAL, "Control robot manually via AWSD keys");
+    
+    po::options_description optdescInputFile("Input File Options");
+	optdescInputFile.add_options()
+	    (c_szVIDEO, "If specified, a video of path will be written instead of map image")
+        (c_szOUTPUT, po::value<std::string>()->value_name("file"), "Write output to <file>");
+    
+    po::options_description optdesc;
+    optdesc.add(optdescGeneric).add(optdescRobot).add(optdescInputFile);
+    
 	po::variables_map vm;
 	po::store(po::parse_command_line(nArgs, aczArgs, optdesc), vm);
 	po::notify(vm);    
 	
 	if(vm.count(c_szHELP)) {
 		std::cout << optdesc << std::endl;
-		return 1;
+		return 0;
 	} else if(vm.count(c_szINPUT)) {
 		// Read saved sensor data from log file 
-		auto strLogFile = vm[c_szINPUT].as<std::string>();
+		auto const strLogFile = vm[c_szINPUT].as<std::string>();
 		std::FILE* fp = std::fopen(strLogFile.c_str(), "r");
 		if(!fp) {
 			std::cerr << "Couldn't open " << vm[c_szINPUT].as<std::string>() << std::endl;
 			return 1;
 		}
 
-		cv::VideoWriter vid(strLogFile + ".mov", 
-			cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 
-			5, 
-			cv::Size(c_nMapExtent, c_nMapExtent)
-		);
-
-		auto const tpStart = std::chrono::system_clock::now();
-
-		CFastParticleSlam rbt;
-		SSensorData data;
-
-		// TODO: Move SSensorData output and input to robot_configuration.h
-		while(7==std::fscanf(fp, "%*f;%hd;%hd;%hd;%hd;%hd;%hd;%hd\n", 
-			&data.m_nYaw, &data.m_nAngle, &data.m_nDistance,
-			&data.m_anEncoderTicks[0], &data.m_anEncoderTicks[1], 
-			&data.m_anEncoderTicks[2], &data.m_anEncoderTicks[3])) 
-		{ 
-			if(rbt.receivedSensorData(data)) {
-				cv::Mat matTemp;
-				cv::cvtColor(rbt.getMap(), matTemp, cv::COLOR_GRAY2RGB);
-				vid << matTemp;
-			}
-		}
-		// TODO: Rest of last scan line?
-		auto const tpEnd = std::chrono::system_clock::now();
- 		std::chrono::duration<double> durDiff = tpEnd-tpStart;
-		auto const poseFinal = rbt.Poses().back();
-		std::cout << durDiff.count() << " s\n"
-			<< " Final pose: ("<< poseFinal.m_pt.x  <<";"<< poseFinal.m_pt.y <<";" << poseFinal.m_fYaw << ")\n";
-
-		return 0;
+        bool const bVideo = vm.count(c_szVIDEO);
+        boost::optional<std::string> ostrOutput = vm.count(c_szOUTPUT)
+            ? boost::make_optional(vm[c_szOUTPUT].as<std::string>())
+            : boost::none;
+        
+        return ParseLogFile(fp, bVideo, ostrOutput);
 	} else if(vm.count(c_szPORT)) {
 		// Read serial port, log file name etc
 		auto const strPort = vm[c_szPORT].as<std::string>();

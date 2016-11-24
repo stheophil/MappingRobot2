@@ -131,7 +131,12 @@ void CFastParticleSlamBase::receivedSensorData(SScanLine const& scanline) {
     }
 }
 
-cv::Mat CFastParticleSlamBase::getMap() const {
+cv::Mat CFastParticleSlamBase::getMapWithPoses() const {
     ASSERT(m_itparticleBest!=m_vecparticle.end());
     return m_itparticleBest->m_occgrid.ObstacleMapWithPoses(m_vecpose);
+}
+
+cv::Mat CFastParticleSlamBase::getMap() const {
+    ASSERT(m_itparticleBest!=m_vecparticle.end());
+    return m_itparticleBest->m_occgrid.ObstacleMap();
 }

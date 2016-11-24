@@ -46,6 +46,7 @@ add_executable(robot
     fast_particle_slam.cpp
     particle_slam.h
 	particle_slam.cpp
+    parse_log_file.cpp
 	libicp/src/icp.h
 	libicp/src/icp.cpp
 	libicp/src/icpPointToPlane.h

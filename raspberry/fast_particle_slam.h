@@ -25,6 +25,7 @@ struct SFastSlamParticle {
 struct CFastParticleSlamBase : rbt::nonmoveable {
     CFastParticleSlamBase(int cParticles = 10);
     void receivedSensorData(SScanLine const& scanline);
+    cv::Mat getMapWithPoses() const;
     cv::Mat getMap() const;
 
     std::vector<rbt::pose<double>> const& Poses() const { return m_vecpose; } 
