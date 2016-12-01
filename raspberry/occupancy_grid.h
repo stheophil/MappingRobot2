@@ -4,6 +4,7 @@
 #include "nonmoveable.h"
 #include "geometry.h"
 
+#include <boost/range/iterator_range.hpp>
 #include <opencv2/core.hpp>
 
 // An implementation of an occupancy grid, as described e.g. 
@@ -46,7 +47,7 @@ struct COccupancyGrid : COccupancyGridBaseT<COccupancyGrid> {
     cv::Mat ObstacleMapWithPoses(std::vector<rbt::pose<double>> const& vecpose) const;
 
 private:
-    template<typename Derived> friend struct COccupancyGridBaseT;
+    friend struct COccupancyGridBaseT<COccupancyGrid>;
     void updateGrid(rbt::point<int> const& pt, double fOdds);
     void updateGridPoly(boost::iterator_range<rbt::point<int> const*> rngpt, double fOdds);
 

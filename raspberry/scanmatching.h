@@ -26,7 +26,7 @@ struct COccupancyGridWithObstacleList : COccupancyGridBaseT<COccupancyGridWithOb
     cv::Mat ObstacleMap() const;
     cv::Mat ObstacleMapWithPoses(std::vector<rbt::pose<double>> const& vecpose) const;
 
-    template<typename Derived> friend struct COccupancyGridBaseT;
+    friend struct COccupancyGridBaseT<COccupancyGridWithObstacleList>;
     void updateGrid(rbt::point<int> const& pt, double fOdds);
     void updateGridPoly(boost::iterator_range<rbt::point<int> const*> rngpt, double fOdds) {}
 

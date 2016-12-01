@@ -4,6 +4,8 @@
 #include "geometry.h"
 #include "scanline.h"
 
+#include <functional>
+
 // Robot configuration
 // All robot parameters are configurable here, as well as global parameters
 // such as the map dimensions, the map scaling factor etc. 
