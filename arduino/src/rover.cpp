@@ -247,7 +247,11 @@ void setup()
     delay(1000);
     if(g_bBNO) g_bno.setExtCrystalUse(true);
 
+#ifdef SERIAL_TRACE
+    OnConnection();
+#else
     OnDisconnection();
+#endif 
 }
 
 void InternalHandleCommand(SRobotCommand const& cmd);
@@ -333,8 +337,6 @@ void SendSensorData() {
     // TODO: Limit number of transmissions, once every 50 ms?
 
 #ifdef SERIAL_TRACE
-    Serial.println(g_nYaw);
-    Serial.print('\t');
    	Serial.print(g_servo.Angle());
     Serial.print("\t");
     Serial.println(g_lidar.distance());
