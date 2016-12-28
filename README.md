@@ -31,9 +31,13 @@ This project is an enhanced version of [my original robot](https://github.com/st
 		2. `./rover --input-file log.txt` reads the sensor data, runs a SLAM algorithm on the data, and outputs `log.txt.mov`. Useful for evaluating algorithms offline without powering up the robot. 
 	- `raspberry/test` contains a sample log file and sample outputs of the algorithms implemented in `deadreckoning.cpp`, `particle_slam.cpp` and `scanmatching.cpp` respectively. 
 
-# Build 
+# Build Setup 
 
-_Very incomplete. Haven't tried this out on a new machine in a while._
+_The following is ery incomplete. Haven't tried this out on a new machine in a while._
+
+**PlatformIO**
+
+`pip install -U platformio`
 
 `sudo apt-get install cmake`
 
@@ -46,3 +50,13 @@ _Very incomplete. Haven't tried this out on a new machine in a while._
 See http://docs.opencv.org/3.0-beta/doc/tutorials/introduction/linux_install/linux_install.html
 
 `sudo apt-get install libopencv-dev`
+
+# Building 
+
+    cd arduino 
+    platformio run
+
+    cd ../raspberry
+    mkdir build
+    cmake ..
+    make

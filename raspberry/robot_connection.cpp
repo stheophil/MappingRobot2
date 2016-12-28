@@ -236,14 +236,47 @@ private:
 	ECalibration m_ecalibration = ecalibrationUNKNOWN;
 };
 
-int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManual) {
-	// TODO: Setup boost::asio TCP server to send map bitmaps?
-	// Should that be an boost::asio::io_service running on a separate thread?
-
+int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManual, boost::optional<std::string> const& strOutput) {
 	// Establish robot connection via serial port
 	try {
+		// State shared with parallel thread
+		std::mutex m;
+		CFastParticleSlamBase pfslam;
+		std::condition_variable cv;
+		std::deque<SScanLine> deqscanline;
+		
+		std::thread t([&pfslam, &m, &cv, &deqscanline, &strOutput] {
+			while(true) {	
+				SScanLine scanline;
+				{
+					std::unique_lock<std::mutex> lk(m);
+					cv.wait(lk, [&]{ return !deqscanline.empty(); });
+					
+					if(1<deqscanline.size()) {
+						std::cout << "Warning: Scan line queue size is " << deqscanline.size() << std::endl;
+					}
+					
+					scanline = std::move(deqscanline.front());
+					deqscanline.pop_front();
+				}
+				
+				pfslam.receivedSensorData(scanline);
+				if(strOutput) {
+					try {					
+						cv::imwrite(strOutput.get(), pfslam.getMap());	
+					} catch(std::exception const& e) {
+						std::cerr << "Error writing to " << strOutput.get() << ": " << e.what() << std::endl;
+					} catch(...) {
+						std::cerr << "Unknown error writing to " << strOutput.get() << std::endl;
+						std::abort();
+					}
+				}	
+			}
+		});
+		
 		boost::asio::io_service io_service;
-
+		
+		SScanLine scanline;
 		auto tpStart = std::chrono::system_clock::now();
 		SRobotConnection rc(io_service, strPort, bManual,
 			 [&](SSensorData const& data) {
@@ -262,13 +295,25 @@ int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManu
 					ofsLog << '\n';
 				}
 
-				// TODO: Pass sensordata to robot controller, let robot controller queue sensor data
-				// if necessary
+				if(!scanline.add(data)) {
+					{
+						std::unique_lock<std::mutex> lk(m);
+						deqscanline.emplace_back(scanline);
+						cv.notify_one();
+					}
+					
+					scanline.clear();
+					scanline.add(data);
+				}
+				
 				// TODO: if(!bManual) return controller's command to robot
 				 
 				return boost::none;
 			 }); // throws boost::system:::system_error
+			 
+		t.detach();
 		io_service.run();
+		
 		return 0;
 	} catch(boost::system::system_error const& s) {
 		std::cerr << s.what();

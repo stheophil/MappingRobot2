@@ -11,13 +11,14 @@ constexpr char c_szHELP[] = "help";
 constexpr char c_szPORT[] = "port";
 constexpr char c_szLOG[] = "log";
 constexpr char c_szMANUAL[] = "manual";
+constexpr char c_szMAP[] = "map";
 
 constexpr char c_szINPUT[] = "input-file";
 constexpr char c_szVIDEO[] = "video";
 constexpr char c_szOUTPUT[] = "out";
 
 int ParseLogFile(std::FILE* fp, bool bVideo, boost::optional<std::string> const& ostrOutput);
-int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManual);
+int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManual, boost::optional<std::string> const& ostrOutput);
 
 int main(int nArgs, char* aczArgs[]) {
 	namespace po = boost::program_options;
@@ -39,7 +40,8 @@ int main(int nArgs, char* aczArgs[]) {
 	po::options_description optdescRobot("Robot options");
 	optdescRobot.add_options()
 	    (c_szLOG, po::value<std::string>()->value_name("file"), "Log all sensor data to <file>")
-	    (c_szMANUAL, "Control robot manually via AWSD keys");
+	    (c_szMANUAL, "Control robot manually via AWSD keys")
+        (c_szMAP, po::value<std::string>()->value_name("file"), "Write map to <file>");
     
     po::options_description optdescInputFile("Input File Options");
 	optdescInputFile.add_options()
@@ -74,19 +76,18 @@ int main(int nArgs, char* aczArgs[]) {
 	} else if(vm.count(c_szPORT)) {
 		// Read serial port, log file name etc
 		auto const strPort = vm[c_szPORT].as<std::string>();
-		std::string strLog;
+		std::basic_ofstream<char> ofsLog;
 		if(vm.count(c_szLOG)) {
-			strLog = vm[c_szLOG].as<std::string>();
+			ofsLog.open(vm[c_szLOG].as<std::string>(), std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
+			VERIFY(ofsLog.good());
 		}
 		bool const bManual = vm.count(c_szMANUAL);
         
-        std::basic_ofstream<char> ofsLog;
-		if(!strLog.empty()) {
-			ofsLog.open(strLog, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
-			VERIFY(ofsLog.good());
+        boost::optional<std::string> strOutput;
+        if(vm.count(c_szMAP)) {
+			strOutput = vm[c_szMAP].as<std::string>();
 		}
-
-        return ConnectToRobot(strPort, ofsLog, bManual);
+        return ConnectToRobot(strPort, ofsLog, bManual, strOutput);
 	} else {
 		std::cerr << "You must specify either the port to read from or an input file to parse" << std::endl;
 		std::cerr << optdesc << std::endl;
