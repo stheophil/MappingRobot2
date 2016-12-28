@@ -6,7 +6,7 @@
 #include "PID_v1.h"
 #include "XL320.h"
 #include "HalfDuplexHardwareSerial.h"
-#include "LIDARLite/LIDARLite.h"
+#include "LIDARLite.h"
 
 // #define SERIAL_TRACE
 
@@ -210,6 +210,7 @@ void blink(int nDelay, int nTimes = 1) {
     }
 }
 
+void OnConnection();
 void OnDisconnection();
 
 void setup()
