@@ -105,27 +105,7 @@ struct SRobotConnection : SConfigureStdin {
 				ASSERT(!m_bShutdown);
 
 				switch(m_ch) {
-					case 'w': 
-						if(m_bManual) {
-							send_command(SRobotCommand::forward()); 
-						}
-						break;
-					case 'a': 
-						if(m_bManual) {
-							send_command(SRobotCommand::left_turn()); 
-						}
-						break;
-					case 's': 
-						if(m_bManual) {
-							send_command(SRobotCommand::backward()); 
-						}
-						break;
-					case 'd':
-						if(m_bManual) {
-							send_command(SRobotCommand::right_turn()); 
-						}
-						break;
-					case 'c': 
+					case 'q': 
 						if(ecalibrationWAITFORUSER==m_ecalibration) {
 							m_ecalibration=ecalibrationDONE; 
 						}
@@ -133,6 +113,21 @@ struct SRobotConnection : SConfigureStdin {
 					case 'x': 
 						Shutdown();
 						return; // Don't wait for further commands
+					default: 
+						if(m_bManual) {
+							switch(m_ch) {
+								case 'e': send_command(SRobotCommand::forward_left()); break;
+								case 'r': send_command(SRobotCommand::forward()); break;
+								case 't': send_command(SRobotCommand::forward_right()); break;
+
+								case 'd': send_command(SRobotCommand::left_turn()); break;
+								case 'g': send_command(SRobotCommand::right_turn()); break;
+
+								case 'c': send_command(SRobotCommand::backward_left()); break;
+								case 'v': send_command(SRobotCommand::backward()); break;
+								case 'b': send_command(SRobotCommand::backward_right()); break;
+							}
+						}					
 				}
 
 				wait_for_command();
@@ -175,7 +170,7 @@ struct SRobotConnection : SConfigureStdin {
 							m_tpLastMessage = tpNow;
 						}
 						if(3==m_sensordata.m_nCalibSystem) {
-							std::cout << "Calibration succeeded. Put robot on the floor and press c." << std::endl;
+							std::cout << "Calibration succeeded. Put robot on the floor and press q." << std::endl;
 							m_ecalibration = ecalibrationWAITFORUSER;
 						}
 						break;

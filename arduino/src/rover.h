@@ -22,7 +22,13 @@ struct SRobotCommand {
     short m_nSpeedRight;
 
     inline static SRobotCommand forward() { return {ecmdMOVE, c_nMaxFwdSpeed, c_nMaxFwdSpeed}; }
+    inline static SRobotCommand forward_left() { return {ecmdMOVE, c_nMaxFwdSpeed/2, c_nMaxFwdSpeed}; }
+    inline static SRobotCommand forward_right() { return {ecmdMOVE, c_nMaxFwdSpeed, c_nMaxFwdSpeed/2}; }
+
     inline static SRobotCommand backward() { return {ecmdMOVE, -c_nMaxFwdSpeed, -c_nMaxFwdSpeed}; }
+    inline static SRobotCommand backward_left() { return {ecmdMOVE, -c_nMaxFwdSpeed/2, -c_nMaxFwdSpeed}; }
+    inline static SRobotCommand backward_right() { return {ecmdMOVE, -c_nMaxFwdSpeed, -c_nMaxFwdSpeed/2}; }
+
     inline static SRobotCommand left_turn() { return {ecmdMOVE, -c_nMaxFwdSpeed, c_nMaxFwdSpeed}; }
     inline static SRobotCommand right_turn() { return {ecmdMOVE, c_nMaxFwdSpeed, -c_nMaxFwdSpeed}; }
     
