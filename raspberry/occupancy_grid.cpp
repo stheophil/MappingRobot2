@@ -30,6 +30,7 @@ void COccupancyGrid::updateGrid(rbt::point<int> const& pt, double fOdds) {
     // If we ever need a non-binary version, a lookup table
     // would be useful instead of this:
     // auto const nColor = rbt::numeric_cast<std::uint8_t>(1.0 / ( 1.0 + std::exp( fOdds )) * 255);
+    assert(is_inside(pt));
     m_matnMapObstacle.at<std::uint8_t>(pt.y, pt.x) = 0 < fOdds ? 0 : 255;
 }
 

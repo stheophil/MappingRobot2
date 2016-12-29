@@ -47,7 +47,14 @@ COccupancyGridBaseT<Derived>& COccupancyGridBaseT<Derived>::operator=(COccupancy
 
 template<typename Derived>
 bool COccupancyGridBaseT<Derived>::occupied(rbt::point<int> const& pt) const {
+	assert(is_inside(pt));
     return c_fFreeThreshold<m_matfMapLogOdds.at<float>(pt.y, pt.x);
+}
+
+template<typename Derived>
+bool COccupancyGridBaseT<Derived>::is_inside(rbt::point<int> const& pt) const {
+	auto const sz = m_matfMapLogOdds.size();
+	return 0<=pt.x && 0<=pt.y && pt.x < sz.width && pt.y < sz.height;
 }
 
 template<typename Derived>
@@ -57,8 +64,10 @@ void COccupancyGridBaseT<Derived>::internalUpdatePerObstacle(rbt::point<double> 
         ToGridCoordinate(ptf), 
         ToGridCoordinate(ptfObstacle)
     );
-    for(int i = 0; i < itpt.count; i++, ++itpt) {
+    for(int i = 0; i < itpt.count; i++, ++itpt) {    	
         auto const pt = rbt::point<int>(itpt.pos());
+        assert(is_inside(pt)); // LineIterator clips to line boundaries
+
         auto const fDeltaValue = i<itpt.count-1 
             ? c_fFreeDelta // free
             : c_fOccupiedDelta; // occupied  
@@ -66,7 +75,7 @@ void COccupancyGridBaseT<Derived>::internalUpdatePerObstacle(rbt::point<double> 
         auto const fOdds = m_matfMapLogOdds.at<float>(pt.y, pt.x) + fDeltaValue;
         m_matfMapLogOdds.at<float>(pt.y, pt.x) = fOdds;
 
-        static_cast<Derived*>(this)->updateGrid(pt, fOdds);
+        static_cast<Derived*>(this)->updateGrid(pt, fOdds);	
     }
 }
 

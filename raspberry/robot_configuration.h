@@ -79,7 +79,8 @@ double log_likelihood_field(rbt::pose<double> const& pose, SScanLine const& scan
                 
                 // Checking not only for the occupied point but also for the neighboring
                 // free point is also taken from gmapping implementation
-                if(occgrid.occupied(ptnOccOff) && !occgrid.occupied(ptnFreeOff)) {
+                if(occgrid.is_inside(ptnOccOff) && occgrid.occupied(ptnOccOff) 
+                && occgrid.is_inside(ptnFreeOff) && !occgrid.occupied(ptnFreeOff)) {
                     double fSqrDist = (ptfOccupied - rbt::point<double>(ToWorldCoordinate(ptnOccOff))).SqrAbs();
                     if(fSqrDist < fSqrDistBest) {
                         fSqrDistBest = fSqrDist;
