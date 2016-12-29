@@ -9,7 +9,7 @@ This project is an enhanced version of [my original robot](https://github.com/st
 - Dagu Rover 5 robot with offroad wheels (for the looks)
 - LidarLite v2 sensor mounted on Dynamixel XL-320 servo 
 - Teensy 2.0++ microcontroller as sensor & motor interface (recommended for the large number of I/O pins, especially interrupt-enabled pins), 
-- connected via USB to a Raspberry Pi (v3 is recommended for its performance, the faster the better) 
+- connected via USB to an [up-board](http://www.up-board.org/up/specifications/) (quad-core Intel Atom x5-Z8350)
 
 **Software**
 
@@ -27,13 +27,13 @@ This project is an enhanced version of [my original robot](https://github.com/st
 	- It uses CMake as a build toolset and requires boost >= 1.55 and OpenCV >= 3.0
 	- It includes 'libicp', an interative closest point solver from http://www.cvlibs.net/software/libicp/ which can use OpenMP if available
 	- Build and run `rover --help` to get information about command line arguments. Currently, two modes of operation are supported:
-		1. `./rover --port /dev/ttyUSBPORT --manual --log log.txt` tries to connect to the microcontroller on USB serial port `/dev/ttyUSBPORT`, let's you control the robot using the `WASD` keys and logs all sensor data to `log.txt`
+		1. `./rover --port /dev/ttyUSBPORT --manual --map map.png` tries to connect to the microcontroller on USB serial port `/dev/ttyUSBPORT`, let's you control the robot using the `WASD` keys and outputs the current map with the robot's pose to `map.png`
 		2. `./rover --input-file log.txt` reads the sensor data, runs a SLAM algorithm on the data, and outputs `log.txt.mov`. Useful for evaluating algorithms offline without powering up the robot. 
 	- `raspberry/test` contains a sample log file and sample outputs of the algorithms implemented in `deadreckoning.cpp`, `particle_slam.cpp` and `scanmatching.cpp` respectively. 
 
 # Build Setup 
 
-_The following is ery incomplete. Haven't tried this out on a new machine in a while._
+_The following is very incomplete. Haven't tried this out on a new machine in a while._
 
 **PlatformIO**
 
