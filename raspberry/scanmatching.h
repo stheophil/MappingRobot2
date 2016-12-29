@@ -28,7 +28,7 @@ struct COccupancyGridWithObstacleList : COccupancyGridBaseT<COccupancyGridWithOb
 
     friend struct COccupancyGridBaseT<COccupancyGridWithObstacleList>;
     void updateGrid(rbt::point<int> const& pt, double fOdds);
-    void updateGridPoly(boost::iterator_range<rbt::point<int> const*> rngpt, double fOdds) {}
+    void updateGridPoly(std::vector<rbt::point<int>> const& rngpt, double fOdds) {}
 
 private:
     std::vector<rbt::point<double>> m_vecptfOccupied;

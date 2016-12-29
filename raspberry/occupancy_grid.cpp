@@ -33,7 +33,7 @@ void COccupancyGrid::updateGrid(rbt::point<int> const& pt, double fOdds) {
     m_matnMapObstacle.at<std::uint8_t>(pt.y, pt.x) = 0 < fOdds ? 0 : 255;
 }
 
-void COccupancyGrid::updateGridPoly(boost::iterator_range<rbt::point<int> const*> rngpt, double fOdds) {
+void COccupancyGrid::updateGridPoly(std::vector<rbt::point<int>> const& rngpt, double fOdds) {
     std::vector<cv::Point> vecpt(boost::begin(rngpt), boost::end(rngpt));
     cv::fillConvexPoly(m_matnMapObstacle, vecpt.data(), vecpt.size(), 0 < fOdds ? 0 : 255);
 }
@@ -46,6 +46,18 @@ cv::Mat ObstacleMapWithPoses(cv::Mat const& m, std::vector<rbt::pose<double>> co
         ptnPrev = ptnGrid;
     });
     return m;
+}
+
+std::vector<rbt::point<int>> RenderRobotPose(cv::Mat& mat, rbt::pose<double> const& pose, cv::Scalar color) {
+    rbt::size<double> const szfHalfSize(c_nRobotWidth/2.0, c_nRobotHeight/2.0);
+    std::vector<rbt::point<int>> vecpt = {
+        ToGridCoordinate(pose.m_pt - szfHalfSize.rotated(pose.m_fYaw)),
+        ToGridCoordinate(pose.m_pt + rbt::size<double>(szfHalfSize.x, -szfHalfSize.y).rotated(pose.m_fYaw)),
+        ToGridCoordinate(pose.m_pt + szfHalfSize.rotated(pose.m_fYaw)),
+        ToGridCoordinate(pose.m_pt + rbt::size<double>(-szfHalfSize.x, szfHalfSize.y).rotated(pose.m_fYaw))
+    };
+    cv::fillConvexPoly(mat, reinterpret_cast<cv::Point*>(vecpt.data()), vecpt.size(), color);
+    return vecpt;
 }
 
 cv::Mat COccupancyGrid::ObstacleMapWithPoses(std::vector<rbt::pose<double>> const& vecpose) const {

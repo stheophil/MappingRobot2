@@ -140,3 +140,10 @@ cv::Mat CFastParticleSlamBase::getMap() const {
     ASSERT(m_itparticleBest!=m_vecparticle.end());
     return m_itparticleBest->m_occgrid.ObstacleMap();
 }
+
+cv::Mat CFastParticleSlamBase::getMapWithPose() const {
+    ASSERT(m_itparticleBest!=m_vecparticle.end());
+    cv::Mat mat = m_itparticleBest->m_occgrid.ObstacleMap();
+    RenderRobotPose(mat, m_vecpose.back(), cv::Scalar(255, 0, 0));
+    return mat;
+}

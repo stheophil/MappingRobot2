@@ -263,7 +263,7 @@ int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManu
 				pfslam.receivedSensorData(scanline);
 				if(strOutput) {
 					try {					
-						cv::imwrite(strOutput.get(), pfslam.getMap());	
+						cv::imwrite(strOutput.get(), pfslam.getMapWithPose());	
 					} catch(std::exception const& e) {
 						std::cerr << "Error writing to " << strOutput.get() << ": " << e.what() << std::endl;
 					} catch(...) {

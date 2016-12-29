@@ -37,6 +37,7 @@ protected:
 };
 
 cv::Mat ObstacleMapWithPoses(cv::Mat const& matn, std::vector<rbt::pose<double>> const& vecpose);
+std::vector<rbt::point<int>> RenderRobotPose(cv::Mat& mat, rbt::pose<double> const& pose, cv::Scalar color);
 
 struct COccupancyGrid : COccupancyGridBaseT<COccupancyGrid> {
     COccupancyGrid();        
@@ -49,7 +50,7 @@ struct COccupancyGrid : COccupancyGridBaseT<COccupancyGrid> {
 private:
     friend struct COccupancyGridBaseT<COccupancyGrid>;
     void updateGrid(rbt::point<int> const& pt, double fOdds);
-    void updateGridPoly(boost::iterator_range<rbt::point<int> const*> rngpt, double fOdds);
+    void updateGridPoly(std::vector<rbt::point<int>> const& rngpt, double fOdds);
 
     cv::Mat m_matnMapObstacle; // thresholded version of m_matfMapLogOdds
 };

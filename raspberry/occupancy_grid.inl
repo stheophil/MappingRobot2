@@ -72,17 +72,10 @@ void COccupancyGridBaseT<Derived>::internalUpdatePerObstacle(rbt::point<double> 
 
 template<typename Derived>
 void COccupancyGridBaseT<Derived>::internalUpdatePerPose(rbt::pose<double> const& pose) {
-    // Clear position of robot itself
-    rbt::size<double> const szfHalfSize(c_nRobotWidth/2.0, c_nRobotHeight/2.0);
-    rbt::point<int> const apt[] = {
-        ToGridCoordinate(pose.m_pt - szfHalfSize.rotated(pose.m_fYaw)),
-        ToGridCoordinate(pose.m_pt + rbt::size<double>(szfHalfSize.x, -szfHalfSize.y).rotated(pose.m_fYaw)),
-        ToGridCoordinate(pose.m_pt + szfHalfSize.rotated(pose.m_fYaw)),
-        ToGridCoordinate(pose.m_pt + rbt::size<double>(-szfHalfSize.x, szfHalfSize.y).rotated(pose.m_fYaw))
-    };
-    std::vector<cv::Point> vecpt(boost::begin(apt), boost::end(apt));
-    cv::fillConvexPoly(m_matfMapLogOdds, vecpt.data(), vecpt.size(), cv::Scalar(c_fOccupancyRover));
-    static_cast<Derived*>(this)->updateGridPoly(boost::make_iterator_range(boost::begin(apt), boost::end(apt)), c_fOccupiedDelta);
+    static_cast<Derived*>(this)->updateGridPoly(
+    	RenderRobotPose(m_matfMapLogOdds, pose, cv::Scalar(c_fOccupancyRover)), 
+    	c_fOccupiedDelta
+    );
 }
 
 template<typename Derived>
