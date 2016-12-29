@@ -1,0 +1,17 @@
+<html>
+<header>
+<script type="text/javascript">
+	function setTimer() {
+		window.setInterval( function () {
+			var img = document.getElementById("map");
+			img.src = img.src + "?" + new Date().getTime();
+		},
+		500
+		);
+	}
+</script>
+</header>
+<body onload="setTimer()">
+	<img src="map.png" id="map" width="800" height="800"/>
+</body>
+</html>
