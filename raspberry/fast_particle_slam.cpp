@@ -144,6 +144,8 @@ cv::Mat CFastParticleSlamBase::getMap() const {
 cv::Mat CFastParticleSlamBase::getMapWithPose() const {
     ASSERT(m_itparticleBest!=m_vecparticle.end());
     cv::Mat mat = m_itparticleBest->m_occgrid.ObstacleMap();
-    RenderRobotPose(mat, m_vecpose.back(), cv::Scalar(255, 0, 0));
-    return mat;
+    cv::Mat matColor;
+    cvtColor(mat, matColor, CV_GRAY2RGB);
+    RenderRobotPose(matColor, m_vecpose.back(), cv::Scalar(255, 0, 0));
+    return matColor;
 }
