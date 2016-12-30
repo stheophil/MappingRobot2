@@ -111,6 +111,7 @@ struct SRobotConnection : SConfigureStdin {
 						}
 						break;
 					case 'x': 
+						std::cout << "Shutting down.\n";
 						Shutdown();
 						return; // Don't wait for further commands
 					default: 
@@ -135,9 +136,12 @@ struct SRobotConnection : SConfigureStdin {
 	}
  
 	void wait_for_sensor_data() {
+		m_timer.expires_from_now(boost::posix_time::seconds(60));
 		m_timer.async_wait([this](boost::system::error_code const& ec) {
-			ASSERT(!ec);
-			Shutdown(); // No data in 60s -> shutdown
+			if(!ec) {
+				std::cout << "No command for 60s. Shutting down.\n";
+				Shutdown(); // No data in 60s -> shutdown
+			}
 		});
 
 		boost::asio::async_read(
@@ -149,6 +153,7 @@ struct SRobotConnection : SConfigureStdin {
 
 				// Ignore further data if we're waiting for the last reset command to be delivered
 				if(m_bShutdown) return;
+				m_timer.cancel();
 
 				switch(m_ecalibration) {
 					case ecalibrationUNKNOWN:
