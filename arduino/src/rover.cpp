@@ -29,7 +29,7 @@ struct SMotor {
     void setup() {
         pinMode(POWER, OUTPUT);
         pinMode(DIR, OUTPUT);
-	    pinMode(CURRENT, INPUT);
+        pinMode(CURRENT, INPUT);
         pinMode(ENCODER_IRQ, INPUT_PULLUP);
         
         m_nTicks = 0;
@@ -292,10 +292,11 @@ SReadCommand ReadCommand() {
 
 void InternalHandleCommand(SRobotCommand const& cmd) {
     switch(cmd.m_ecmd) {
-	case ecmdCONNECT:
-	    OnConnection();
-	    break;
+       case ecmdCONNECT:
+            OnConnection();
+            break;
         case ecmdRESET: 
+            blink(200, 4);
             OnDisconnection();
             break;
         case ecmdMOVE:
@@ -337,7 +338,7 @@ void SendSensorData() {
     // TODO: Limit number of transmissions, once every 50 ms?
 
 #ifdef SERIAL_TRACE
-   	Serial.print(g_servo.Angle());
+    Serial.print(g_servo.Angle());
     Serial.print("\t");
     Serial.println(g_lidar.distance());
 #else
@@ -377,11 +378,12 @@ void loop() {
                 if(!g_bConnected) return;
             }
         } else if(c_nTIMETODISCONNECT < millis()-g_nLastCommand) {
+            blink(100, 20);
             OnDisconnection(); 
             return;
         } else if(c_nTIMETOSTOP < millis()-g_nLastCommand) {
             InternalHandleCommand(SRobotCommand::stop());
-	    }
+        }
         
         for(unsigned int i=0; i<countof(g_amotors); ++i) {
             g_amotors[i].ComputePID(g_apid[i]);
