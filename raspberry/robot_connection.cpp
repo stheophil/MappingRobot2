@@ -17,11 +17,13 @@ using namespace std::chrono_literals;
 #include <boost/asio.hpp>
 #include <boost/algorithm/cxx11/all_of.hpp>
 #include <boost/range/algorithm/for_each.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <boost/optional.hpp>
 #include <boost/pool/object_pool.hpp>
 
 #include "opencv2/opencv.hpp"
+#include <microhttpd.h>
 
 /*  Configures stdin, so robot can be controlled with 
 	WASD keys from command line. 
@@ -278,6 +280,7 @@ int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManu
 		
 		SScanLine scanline;
 		auto tpStart = std::chrono::system_clock::now();
+		
 		SRobotConnection rc(io_service, strPort, bManual,
 			 [&](SSensorData const& data) {
 				if(ofsLog.is_open()) {
@@ -310,10 +313,83 @@ int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManu
 				 
 				return boost::none;
 			 }); // throws boost::system:::system_error
-			 
+
+		MHD_Daemon* pdaemon = nullptr;
+		if(bManual) {
+			std::cout << "Starting server on port 8088" << std::endl;
+			pdaemon = MHD_start_daemon(
+				MHD_USE_THREAD_PER_CONNECTION, 
+				/*port*/ 8088, 
+				/*accept all connections*/ nullptr, nullptr, 
+				[](void* pvData, struct MHD_Connection* pconn, 
+					const char* szUrl, const char* szMethod, const char* szVersion, const char* szUploadData, size_t* stUploadDataSize, 
+					void** ppvConnectionData) {
+
+					if(0 != strcmp(szMethod, MHD_HTTP_METHOD_GET)) { 
+    					return MHD_NO; // unexpected method
+					}
+
+					static int s_nDummy;
+  					if(&s_nDummy != *ppvConnectionData) { // do never respond on first call
+      					*ppvConnectionData = &s_nDummy;
+      					return MHD_YES;
+    				}
+  					*ppvConnectionData = nullptr;
+
+					// Set Access-Control-Allow-Origin header for any client IP
+					sockaddr* psockaddr = MHD_get_connection_info(pconn, MHD_CONNECTION_INFO_CLIENT_ADDRESS)->client_addr;
+  
+					constexpr int c_cbIPADDRESS = 20;
+   					char strIP[c_cbIPADDRESS];
+					if(psockaddr->sa_family == AF_INET) { 
+						sockaddr_in *v4 = reinterpret_cast<sockaddr_in*>(psockaddr); 
+						inet_ntop(AF_INET, std::addressof(v4->sin_addr), strIP, c_cbIPADDRESS); 
+					} else {
+						ASSERT(psockaddr->sa_family == AF_INET6); 
+						sockaddr_in6 *v6 = reinterpret_cast<sockaddr_in6*>(psockaddr); 
+						inet_ntop(AF_INET6, std::addressof(v6->sin6_addr), strIP, c_cbIPADDRESS);
+					}
+  					
+					auto EmptyResponse = [&](int nCode) {
+						auto* presponse = MHD_create_response_from_buffer(0, nullptr, MHD_RESPMEM_PERSISTENT);
+						ASSERT(presponse);
+						VERIFYEQUAL(MHD_add_response_header(presponse, "Access-Control-Allow-Origin", strIP), MHD_YES);
+						VERIFYEQUAL(MHD_queue_response(pconn, nCode, presponse), MHD_YES);
+						MHD_destroy_response(presponse);
+						return MHD_YES;
+					};
+
+					if(0==strcmp(szUrl, "/command")) {
+						const char* szLeft = MHD_lookup_connection_value(pconn, MHD_GET_ARGUMENT_KIND, "left");
+						const char* szRight = MHD_lookup_connection_value(pconn, MHD_GET_ARGUMENT_KIND, "right");
+
+						if(szLeft && szRight) {
+							try {						
+								auto const nLeft = boost::lexical_cast<short>(szLeft);
+								auto const nRight = boost::lexical_cast<short>(szRight);
+
+								reinterpret_cast<SRobotConnection*>(pvData)->send_command(
+									{ecmdMOVE, std::min(nLeft, c_nMaxFwdSpeed), std::min(nRight, c_nMaxFwdSpeed)}
+								);
+								return EmptyResponse(200);
+							} catch(boost::bad_lexical_cast const&) {}
+						}
+						return EmptyResponse(400);
+					}
+					return EmptyResponse(404);
+				},
+				std::addressof(rc),
+				MHD_OPTION_END
+			);
+			ASSERT(pdaemon);
+			std::cout << "Started http server on port 8088." << std::endl;
+		}
+
 		t.detach();
 		io_service.run();
 		
+		if(pdaemon) MHD_stop_daemon(pdaemon);
+
 		return 0;
 	} catch(boost::system::system_error const& s) {
 		std::cerr << s.what();

@@ -1,17 +1,39 @@
 <html>
 <header>
 <script type="text/javascript">
-	function setTimer() {
+	function init() {
+		// Query new map every 500 ms
 		window.setInterval( function () {
-			var img = document.getElementById("map");
-			img.src = img.src + "?" + new Date().getTime();
+				var img = document.getElementById("map");
+				img.src = img.src + "?" + new Date().getTime();
+			},
+			500
+		);
+
+		// Query gamepad every 100 ms		
+		strUrl = "http://" + window.location.hostname + ":8088/command"
+		window.setInterval( function() {
+			var gamepads = navigator.getGamepads();
+			for (var i = 0; i < gamepads.length; ++i) {
+				var pad = gamepads[i];
+				if(pad && pad.mapping=="standard") {
+					var req = new XMLHttpRequest();
+					req.open("GET", 
+						strUrl 
+						+ "?left=" + (pad.axes[1] * -255).toFixed()
+						+ "&right=" + (pad.axes[3] * -255).toFixed(), 
+						true);
+					req.send();
+					break;
+				}
+			}
 		},
-		500
+		100
 		);
 	}
 </script>
 </header>
-<body onload="setTimer()">
+<body onload="init()">
 	<img src="map.png" id="map" width="800" height="800"/>
 </body>
 </html>

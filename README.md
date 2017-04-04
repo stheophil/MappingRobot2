@@ -51,6 +51,10 @@ See http://docs.opencv.org/3.0-beta/doc/tutorials/introduction/linux_install/lin
 
 `sudo apt-get install libopencv-dev`
 
+**Install libmicrohttpd**
+    
+`sudo apt-get install libmicrohttpd`
+
 # Building 
 
     cd arduino 

@@ -5,9 +5,14 @@ cmake_minimum_required (VERSION 2.6)
 # set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # set(CXX_STANDARD 11)
 
-set(Boost_DEBUG ON)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
+# set(Boost_DEBUG ON)
+# set(OpenSSL_DEBUG ON)
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system program_options)
 find_package(OpenCV REQUIRED)
+find_package(LibMicroHTTPD REQUIRED)
+# find_package(OpenSSL REQUIRED)
 
 # libicp uses openmp, it's not supported on the Mac, but is on the raspi
 option(USE_OPENMP "Enable OpenMP?" ON) # set to OFF to disable
@@ -24,6 +29,8 @@ endif(USE_OPENMP)
 
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${MHD_INCLUDE_DIRS})
+include_directories(${OPENSSL_INCLUDE_DIR})
 include_directories("../arduino/src")
 include_directories("libicp/src")
 
@@ -61,11 +68,13 @@ add_executable(robot
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/usr/local/opt/openssl/lib")
 
-target_compile_options(robot PRIVATE --std=c++1y -DBOOST_RANGE_ENABLE_CONCEPT_ASSERT=0 -Wall -Wno-unused-local-typedef)
+target_compile_options(robot PRIVATE --std=c++1y -DBOOST_RANGE_ENABLE_CONCEPT_ASSERT=0 -Wall -Wno-deprecated-declarations -Wno-unused-local-typedef)
 
 target_link_libraries( robot 
 	${OpenCV_LIBS} 
 	${Boost_LIBRARIES}
+	${MHD_LIBRARIES}
 	pthread
 )
