@@ -39,6 +39,7 @@ struct SRobotCommand {
 
 static_assert(sizeof(SRobotCommand)==6, "");
 
+// TODO: Remove everything but odometry?
 struct SSensorData { // must be < 64 bytes
     unsigned short m_nYaw; // in degrees x 100 (0, 359) both inclusive, (clock-wise!), USHRT_MAX -> no IMU
     uint8_t m_nCalibSystem; // calibration data (0, 3) - 0 is uncalibrated

@@ -1,14 +1,8 @@
 #include "Arduino.h"
 #include "rover.h"
-#include "Adafruit_BNO055.h"
 
 #include "SPI.h"
 #include "PID_v1.h"
-#include "XL320.h"
-#include "HalfDuplexHardwareSerial.h"
-#include "LIDARLite.h"
-
-// #define SERIAL_TRACE
 
 #define countof(a) (sizeof(a)/sizeof(a[0]))
 
@@ -131,72 +125,6 @@ void (*c_afnInterrupts[4])() = {
 
 //////////////////////////////////////////////////////////////////////////////
 //
-// IMU
-//
-
-Adafruit_BNO055 g_bno = Adafruit_BNO055(55);
-bool g_bBNO = false;
-
-//////////////////////////////////////////////////////////////////////////////
-//
-// LIDAR
-//
-struct SFeedbackServo {
-    XL320 m_servo;
-    static int const c_nServoID = 1;
-    // static int const c_nMinAngle = -104;
-    // static int const c_nMaxAngle = 104; 
-    static int const c_nMinPosition = 144;
-    static int const c_nMaxPosition = 880;
-    static int const c_nAngleTolerance = 15; // Depends on the pull the cables exert
-
-    SFeedbackServo() {}
-
-    void setup() {
-        // Half-Duplex serial
-        pinMode(2, INPUT_PULLUP);
-        pinMode(3, INPUT_PULLUP);
-
-        HalfDuplexSerial1.begin(115200);
-        HalfDuplexSerial1.setTimeout(10);
-        m_servo.begin(HalfDuplexSerial1);
-        delay(1000);
-
-        // A new factory-configured Dynamixel XL320 servo is set to a baud rate of
-        // 1 Mbps, which the Teensy++ 2.0 can deliver. I don't think the Half-duplex
-        // serial implementation can, though. I think it's based on the Software
-        // serial code. 
-        // g_servo.sendPacket(g_nServoID, XL_BAUD_RATE, 2); // = 115200
-
-        m_servo.setJointSpeed(c_nServoID, 400); // [0, 1023]
-        delay(300);
-        m_servo.moveJoint(c_nServoID, c_nMinPosition); // [0, 1023]
-        delay(300);
-    }
-
-    int m_nPosition = -1; // negative value implies error
-    void loop() {
-        int nJointOrError = m_servo.getJointPosition(c_nServoID);
-        if(0<=nJointOrError) {
-            if(nJointOrError <= c_nMinPosition + c_nAngleTolerance) {
-                m_servo.moveJoint(c_nServoID, c_nMaxPosition);
-            } else if(nJointOrError >= c_nMaxPosition - c_nAngleTolerance) {
-                m_servo.moveJoint(c_nServoID, c_nMinPosition);
-            }
-            m_nPosition = nJointOrError;
-        }
-    }
-
-    int Angle() const {
-        return map(m_nPosition, 0, 1023, -150, 150);
-    }
-
-} g_servo;
-
-LIDARLite g_lidar;
-
-//////////////////////////////////////////////////////////////////////////////
-//
 // LED
 //
 
@@ -218,10 +146,6 @@ void setup()
     Serial.begin(230400);
     delay(3000);  //3 seconds delay for enabling to see the start up comments on the serial board
 
-#ifdef SERIAL_TRACE    
-    Serial.println("Hello!");
-#endif
-
     // Show we are in setup
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, HIGH);
@@ -230,28 +154,12 @@ void setup()
     pinMode(RELAY_PIN, OUTPUT);
     digitalWrite(RELAY_PIN, HIGH);
 
-    // Servo & Lidar
-    g_servo.setup();
-    g_lidar.begin();
-    // TODO: Does this increase speed of LIDAR readings
-    // g_lidar.beginContinuous();
-
     // Motor setup
     for(unsigned int i=0; i<countof(g_amotors); ++i) {
         g_amotors[i].setup();
         attachInterrupt(g_amotors[i].ENCODER_IRQ, c_afnInterrupts[i], CHANGE);
     }
-
-    // Initialise the IMU (connection is optional)
-    g_bBNO = g_bno.begin();
-    delay(1000);
-    if(g_bBNO) g_bno.setExtCrystalUse(true);
-
-#ifdef SERIAL_TRACE
-    OnConnection();
-#else
     OnDisconnection();
-#endif 
 }
 
 void InternalHandleCommand(SRobotCommand const& cmd);
@@ -333,44 +241,32 @@ void HandleCommand(SRobotCommand const& cmd) {
     InternalHandleCommand(cmd);
 }
 
+unsigned long g_nLastSensorData = 0; // time in millis() of last command
 void SendSensorData() {
-    // TODO: Transmit current or make emergency stop if motor current too high
-    // TODO: Limit number of transmissions, once every 50 ms?
+    unsigned long nMillis = millis();
+    if(100<nMillis-g_nLastSensorData) {
+        g_nLastSensorData = nMillis;
+        // TODO: Transmit current or make emergency stop if motor current too high
+        SSensorData data = {
+            UINT16_MAX, 
+            0, 0, 0, 0,
+            0,
+            0,
+            g_amotors[0].Pop(),
+            g_amotors[1].Pop(),
+            g_amotors[2].Pop(),
+            g_amotors[3].Pop()
+        };
 
-#ifdef SERIAL_TRACE
-    Serial.print(g_servo.Angle());
-    Serial.print("\t");
-    Serial.println(g_lidar.distance());
-#else
-    SSensorData data = {
-        UINT16_MAX, 
-        0, 0, 0, 0,
-        g_servo.Angle(), 
-        g_lidar.distance(), // in cm,
-        g_amotors[0].Pop(),
-        g_amotors[1].Pop(),
-        g_amotors[2].Pop(),
-        g_amotors[3].Pop()
-    };
-
-    if(g_bBNO) {
-        sensors_event_t event; 
-        g_bno.getEvent(&event);
-        data.m_nYaw = static_cast<unsigned short>(constrain(round(event.orientation.x * 100), 0, 36000)); 
-        g_bno.getCalibration(&data.m_nCalibSystem, &data.m_nCalibGyro, &data.m_nCalibAccel, &data.m_nCalibMag);
+        Serial.write((byte*)&data, sizeof(data));
     }
-
-    Serial.write((byte*)&data, sizeof(data));
-#endif
 }
 
 static const unsigned long c_nTIMETOSTOP = 200; // ms
 static const unsigned long c_nTIMETODISCONNECT = 60000; // ms
 
 void loop() {
-    if(g_bConnected) {
-        g_servo.loop();
-        
+    if(g_bConnected) {        
         if(0<Serial.available()) {
             auto readcmd = ReadCommand();
             if(readcmd.m_bValid) {
