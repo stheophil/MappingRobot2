@@ -50,3 +50,22 @@ struct SSensorData { // must be < 64 bytes
     short m_nDistance; // lidar distance in cm, in lidar frame of reference
     short m_anEncoderTicks[4]; // front left, front right, back left, back right
 };
+
+struct SLidarData {
+    uint8_t m_nReserved;
+    uint8_t m_nIndex;
+    uint16_t m_nSpeed; 
+
+    struct SData {
+        uint16_t m_nDistance : 14;
+        uint8_t m_flagStrength : 1;
+        uint8_t m_flagInvalidData : 1;
+        uint16_t m_nStrengthl
+    };
+    static_assert(sizeof(SData)==4, "");
+
+    SData m_adata[4];
+
+    uint16_t m_nChecksum;
+};
+static_assert(sizeof(SLidar)==22, "");

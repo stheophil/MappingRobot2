@@ -57,30 +57,39 @@ enum ECalibration {
 	ecalibrationDONE
 };
 
-using FOnSensorData = std::function< boost::optional<SRobotCommand>(SSensorData const&) >;
+using FOnOdometryData = std::function< void (SSensorData const&) >;
+using FOnLidarData = std::function< boost::optional<SRobotCommand>(SLidarData const&) >;
 
 /*
 	Connection to robot using boost::asio 
 	Resets and syncs with connected robot microcontroller.
-	Receives sensor packets from robot microcontroller on serial port strPort, passes it on to func.
+	Receives sensor packets from robot microcontroller on serial port strPort, passes it on to funcOdometry.
 	When the robot microcontroller sends yaw values from an attached IMU, it must be calibrated first.  
 	When manual robot control is enabled, processes WASD keyboard controls and sends them to microcontroller.
 */
 struct SRobotConnection : SConfigureStdin {
-	SRobotConnection(boost::asio::io_service& io_service, std::string const& strPort, bool bManual, FOnSensorData func)
+	SRobotConnection(boost::asio::io_service& io_service, 
+		std::string const& strPort, std::string const& strLidar, 
+		bool bManual, 
+		FOnOdometryData funcOdometry,
+		FOnLidarData funcLidar
+	)
 		: m_io_service(io_service)
 		, m_stdin(io_service, ::dup(STDIN_FILENO))
-		, m_serial(io_service, strPort) // throws boost::system::system_error
+		, m_serialOdo(io_service, strPort) // throws boost::system::system_error
+		, m_serialLidar(io_service, strLidar) // throws boost::system::system_error
 		, m_timer(io_service, boost::posix_time::seconds(60))
-		, m_funcOnSensorData(func)
+		, m_funcOnOdometryData(funcOdometry)
+		, m_funcOnLidarData(funcLidar)
 		, m_bManual(bManual)
 	{
 		wait_for_command();
 		wait_for_sensor_data();
+		wait_for_lidar_data();
 
 		// Send synchronous connection request
 		auto SendCommand = [&](SRobotCommand cmd) {
-			VERIFYEQUAL(boost::asio::write(m_serial, boost::asio::buffer(&cmd, sizeof(decltype(cmd)))), sizeof(decltype(cmd)));
+			VERIFYEQUAL(boost::asio::write(m_serialOdo, boost::asio::buffer(&cmd, sizeof(decltype(cmd)))), sizeof(decltype(cmd)));
 		};
 
 		std::cout << "Resetting Controller\n";
@@ -107,11 +116,6 @@ struct SRobotConnection : SConfigureStdin {
 				ASSERT(!m_bShutdown);
 
 				switch(m_ch) {
-					case 'q': 
-						if(ecalibrationWAITFORUSER==m_ecalibration) {
-							m_ecalibration=ecalibrationDONE; 
-						}
-						break;
 					case 'x': 
 						std::cout << "Shutting down.\n";
 						Shutdown();
@@ -147,7 +151,7 @@ struct SRobotConnection : SConfigureStdin {
 		});
 
 		boost::asio::async_read(
-			m_serial, 
+			m_serialOdo, 
 			boost::asio::buffer(&m_sensordata, sizeof(SSensorData)),
 			[&](boost::system::error_code const& ec, std::size_t length) {
 				ASSERT(!ec);
@@ -157,41 +161,29 @@ struct SRobotConnection : SConfigureStdin {
 				if(m_bShutdown) return;
 				m_timer.cancel();
 
-				switch(m_ecalibration) {
-					case ecalibrationUNKNOWN:
-						if(m_sensordata.m_nYaw!=USHRT_MAX) {
-							std::cout << "To calibrate accelerometer, move robot in an 8." << std::endl;
-							m_ecalibration = ecalibrationINPROGRESS;
-						} else {
-							m_ecalibration = ecalibrationDONE; // No accelerometer, nothing to calibrate
-						}
-						break;
-					case ecalibrationINPROGRESS: {
-						auto tpNow = std::chrono::system_clock::now();
-						std::chrono::duration<double> durDiff = tpNow-m_tpLastMessage;
-						if(5.0 < durDiff.count()) {					
-							std::cout << "Calibration values: " << static_cast<int>(m_sensordata.m_nCalibSystem) << ", " 
-								<< static_cast<int>(m_sensordata.m_nCalibGyro) << ", " 
-								<< static_cast<int>(m_sensordata.m_nCalibAccel) << ", "
-								<< static_cast<int>(m_sensordata.m_nCalibMag) << std::endl;
-							m_tpLastMessage = tpNow;
-						}
-						if(3==m_sensordata.m_nCalibSystem) {
-							std::cout << "Calibration succeeded. Put robot on the floor and press q." << std::endl;
-							m_ecalibration = ecalibrationWAITFORUSER;
-						}
-						break;
-					}
-					case ecalibrationWAITFORUSER: {
-						break; // do nothing until user presses button
-					}
-					case ecalibrationDONE: {
-						m_funcOnSensorData(m_sensordata);
-						break;
-					}
-				}
+				m_funcOnOdometryData(m_sensordata);
 
 				wait_for_sensor_data();
+			}); 
+	}
+	
+	void wait_for_lidar_data() {
+		// TODO: Separate time-out timer for lidar data?
+
+		boost::asio::async_read(
+			m_serialLidar, 
+			boost::asio::buffer(&m_lidardata, sizeof(SLidarData)),
+			[&](boost::system::error_code const& ec, std::size_t length) {
+				ASSERT(!ec);
+				ASSERT(length==sizeof(SLidarData));
+
+				// Ignore further data if we're waiting for the last reset command to be delivered
+				if(m_bShutdown) return;
+				// m_timer.cancel();
+
+				m_funcOnLidarData(m_lidardata);
+
+				wait_for_lidar_data();
 			}); 
 	}
 
@@ -202,7 +194,7 @@ struct SRobotConnection : SConfigureStdin {
 		m_io_service.dispatch([this, rcmd] {
 			auto prcmd = m_poolrcmd.construct(rcmd);
 			boost::asio::async_write(
-				m_serial,
+				m_serialOdo,
 				boost::asio::buffer(prcmd, sizeof(SRobotCommand)),
 				[this, prcmd](boost::system::error_code const& ec, std::size_t length) {
 					ASSERT(!ec);
@@ -225,20 +217,22 @@ private:
 	boost::asio::posix::stream_descriptor m_stdin;
 	char m_ch;
 
-	boost::asio::serial_port m_serial;
+	boost::asio::serial_port m_serialOdo;
+	boost::asio::serial_port m_serialLidar;
 	boost::asio::deadline_timer m_timer;
-	std::chrono::system_clock::time_point m_tpLastMessage;
 	
 	SSensorData m_sensordata;
-	std::function< boost::optional<SRobotCommand>(SSensorData const&) > m_funcOnSensorData;
+	FOnOdometryData m_funcOnOdometryData;
+
+	SLidarData m_lidardata;
+	FOnLidarData m_funcOnLidarData;
 
 	boost::object_pool<SRobotCommand> m_poolrcmd;
 	
 	bool const m_bManual;
-	ECalibration m_ecalibration = ecalibrationUNKNOWN;
 };
 
-int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManual, boost::optional<std::string> const& strOutput) {
+int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std::ofstream& ofsLog, bool bManual, boost::optional<std::string> const& strOutput) {
 	// Establish robot connection via serial port
 	try {
 		// State shared with parallel thread
@@ -281,7 +275,7 @@ int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManu
 		SScanLine scanline;
 		auto tpStart = std::chrono::system_clock::now();
 		
-		SRobotConnection rc(io_service, strPort, bManual,
+		SRobotConnection rc(io_service, strPort, strLidar, bManual,
 			 [&](SSensorData const& data) {
 				if(ofsLog.is_open()) {
 					auto tpEnd = std::chrono::system_clock::now();
@@ -308,11 +302,11 @@ int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManu
 					scanline.clear();
 					scanline.add(data);
 				}
-				
-				// TODO: if(!bManual) return controller's command to robot
-				 
-				return boost::none;
-			 }); // throws boost::system:::system_error
+			 },
+			 [&](SLidarData const& lidar) {
+				 return boost::none;
+			 }			 
+		); // throws boost::system:::system_error
 
 		MHD_Daemon* pdaemon = nullptr;
 		if(bManual) {

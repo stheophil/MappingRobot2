@@ -26,7 +26,7 @@ int ParseLogFile(std::FILE* fp, bool bVideo, boost::optional<std::string> const&
     auto const tpStart = std::chrono::system_clock::now();
 
     CFastParticleSlam rbt;
-    SSensorData data;
+    SSensorData data; // TODO: Read lidar data and odometry
 
     while(7==std::fscanf(fp, "%*f;%hd;%hd;%hd;%hd;%hd;%hd;%hd\n", 
         &data.m_nYaw, &data.m_nAngle, &data.m_nDistance,

@@ -9,6 +9,7 @@
 
 constexpr char c_szHELP[] = "help";
 constexpr char c_szPORT[] = "port";
+constexpr char c_szLIDAR[] = "lidar";
 constexpr char c_szLOG[] = "log";
 constexpr char c_szMANUAL[] = "manual";
 constexpr char c_szMAP[] = "map";
@@ -18,7 +19,7 @@ constexpr char c_szVIDEO[] = "video";
 constexpr char c_szOUTPUT[] = "out";
 
 int ParseLogFile(std::FILE* fp, bool bVideo, boost::optional<std::string> const& ostrOutput);
-int ConnectToRobot(std::string const& strPort, std::ofstream& ofsLog, bool bManual, boost::optional<std::string> const& ostrOutput);
+int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std::ofstream& ofsLog, bool bManual, boost::optional<std::string> const& ostrOutput);
 
 int main(int nArgs, char* aczArgs[]) {
 	namespace po = boost::program_options;
@@ -35,6 +36,7 @@ int main(int nArgs, char* aczArgs[]) {
 	optdescGeneric.add_options()
 	    (c_szHELP, "Print help message")
 	    (c_szPORT, po::value<std::string>()->value_name("p"), "Connect to robot on port <p>")
+	    (c_szLIDAR, po::value<std::string>()->value_name("l"), "Connect to Lidar sensor on port <p>")
 	    (c_szINPUT, po::value<std::string>()->value_name("file"), "Read sensor data from input file <file>");
 
 	po::options_description optdescRobot("Robot options");
@@ -73,9 +75,11 @@ int main(int nArgs, char* aczArgs[]) {
             : boost::none;
         
         return ParseLogFile(fp, bVideo, ostrOutput);
-	} else if(vm.count(c_szPORT)) {
+	} else if(vm.count(c_szPORT) && vm.count(c_szLIDAR)) {
 		// Read serial port, log file name etc
 		auto const strPort = vm[c_szPORT].as<std::string>();
+		auto const strLidar = vm[c_szLIDAR].as<std::string>();
+		
 		std::basic_ofstream<char> ofsLog;
 		if(vm.count(c_szLOG)) {
 			ofsLog.open(vm[c_szLOG].as<std::string>(), std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
@@ -87,7 +91,7 @@ int main(int nArgs, char* aczArgs[]) {
         if(vm.count(c_szMAP)) {
 			strOutput = vm[c_szMAP].as<std::string>();
 		}
-        return ConnectToRobot(strPort, ofsLog, bManual, strOutput);
+        return ConnectToRobot(strPort, strLidar, ofsLog, bManual, strOutput);
 	} else {
 		std::cerr << "You must specify either the port to read from or an input file to parse" << std::endl;
 		std::cerr << optdesc << std::endl;
