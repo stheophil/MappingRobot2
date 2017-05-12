@@ -18,7 +18,7 @@ constexpr char c_szINPUT[] = "input-file";
 constexpr char c_szVIDEO[] = "video";
 constexpr char c_szOUTPUT[] = "out";
 
-int ParseLogFile(std::FILE* fp, bool bVideo, boost::optional<std::string> const& ostrOutput);
+int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> const& ostrOutput);
 int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std::ofstream& ofsLog, bool bManual, boost::optional<std::string> const& ostrOutput);
 
 int main(int nArgs, char* aczArgs[]) {
@@ -63,8 +63,8 @@ int main(int nArgs, char* aczArgs[]) {
 	} else if(vm.count(c_szINPUT)) {
 		// Read saved sensor data from log file 
 		auto const strLogFile = vm[c_szINPUT].as<std::string>();
-		std::FILE* fp = std::fopen(strLogFile.c_str(), "r");
-		if(!fp) {
+		std::ifstream ifs(strLogFile.c_str());
+		if(!ifs) {
 			std::cerr << "Couldn't open " << vm[c_szINPUT].as<std::string>() << std::endl;
 			return 1;
 		}
@@ -74,7 +74,7 @@ int main(int nArgs, char* aczArgs[]) {
             ? boost::make_optional(vm[c_szOUTPUT].as<std::string>())
             : boost::none;
         
-        return ParseLogFile(fp, bVideo, ostrOutput);
+        return ParseLogFile(ifs, bVideo, ostrOutput);
 	} else if(vm.count(c_szPORT) && vm.count(c_szLIDAR)) {
 		// Read serial port, log file name etc
 		auto const strPort = vm[c_szPORT].as<std::string>();

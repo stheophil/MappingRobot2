@@ -69,8 +69,8 @@ rbt::pose<double> COccupancyGridWithObstacleList::fit(rbt::pose<double> const& p
     if(m_vecptfOccupied.size()<10) return poseWorld;
     
     std::vector<rbt::point<double>> vecptfTemplate;
-    scanline.ForEachScan(poseWorld, [&](rbt::pose<double> const& poseScan, double fRadAngle, int nDistance) {
-        vecptfTemplate.emplace_back(ToGridCoordinate(Obstacle(poseScan, fRadAngle, nDistance)));
+    boost::for_each(scanline.m_vecscan, [&](auto const& scan) {
+        vecptfTemplate.emplace_back(ToGridCoordinate(Obstacle(poseWorld, scan.m_fRadAngle, scan.m_nDistance)));
     });
         
 #ifdef ENABLE_SCANMATCH_LOG
@@ -113,8 +113,8 @@ rbt::pose<double> COccupancyGridWithObstacleList::fit(rbt::pose<double> const& p
      {
      
         std::vector<rbt::point<double>> vecptfTemplateCorrected;
-        scanline.ForEachScan(poseWorldCorrected, [&](rbt::pose<double> const& poseScan, double fRadAngle, int nDistance) {
-            vecptfTemplateCorrected.emplace_back(ToGridCoordinate(Obstacle(poseScan, fRadAngle, nDistance)));
+        boost::for_each(scanline.m_vecscan, [&](auto const& scan) {
+            vecptfTemplateCorrected.emplace_back(ToGridCoordinate(Obstacle(poseWorldCorrected, scan.m_fRadAngle, scan.m_nDistance)));
         });
 
         std::stringstream ss;
@@ -169,8 +169,8 @@ void CScanMatchingBase::receivedSensorData(SScanLine const& scanline) {
     );
     
     m_vecpose.emplace_back(m_occgrid.fit(poseNewCandidate, scanline));
-    scanline.ForEachScan(m_vecpose.back(), [&](rbt::pose<double> const& poseScan, double fRadAngle, int nDistance) {
-        m_occgrid.update(poseScan, fRadAngle, nDistance);
+    boost::for_each(scanline.m_vecscan, [&](auto const& scan) {
+        m_occgrid.update(m_vecpose.back(), scan.m_fRadAngle, scan.m_nDistance);
     });
 }
 

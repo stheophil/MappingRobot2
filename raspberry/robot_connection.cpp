@@ -57,7 +57,7 @@ enum ECalibration {
 	ecalibrationDONE
 };
 
-using FOnOdometryData = std::function< void (SSensorData const&) >;
+using FOnOdometryData = std::function< void (SOdometryData const&) >;
 using FOnLidarData = std::function< boost::optional<SRobotCommand>(SLidarData const&) >;
 
 /*
@@ -83,6 +83,12 @@ struct SRobotConnection : SConfigureStdin {
 		, m_funcOnLidarData(funcLidar)
 		, m_bManual(bManual)
 	{
+		m_serialLidar.set_option(boost::asio::serial_port_base::baud_rate(115200));
+		m_serialLidar.set_option(boost::asio::serial_port_base::character_size(8));
+		m_serialLidar.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+		m_serialLidar.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+		m_serialLidar.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+
 		wait_for_command();
 		wait_for_sensor_data();
 		wait_for_lidar_data();
@@ -152,16 +158,16 @@ struct SRobotConnection : SConfigureStdin {
 
 		boost::asio::async_read(
 			m_serialOdo, 
-			boost::asio::buffer(&m_sensordata, sizeof(SSensorData)),
+			boost::asio::buffer(&m_odometry, sizeof(SOdometryData)),
 			[&](boost::system::error_code const& ec, std::size_t length) {
 				ASSERT(!ec);
-				ASSERT(length==sizeof(SSensorData));
+				ASSERT(length==sizeof(SOdometryData));
 
 				// Ignore further data if we're waiting for the last reset command to be delivered
 				if(m_bShutdown) return;
 				m_timer.cancel();
 
-				m_funcOnOdometryData(m_sensordata);
+				m_funcOnOdometryData(m_odometry);
 
 				wait_for_sensor_data();
 			}); 
@@ -169,7 +175,6 @@ struct SRobotConnection : SConfigureStdin {
 	
 	void wait_for_lidar_data() {
 		// TODO: Separate time-out timer for lidar data?
-
 		boost::asio::async_read(
 			m_serialLidar, 
 			boost::asio::buffer(&m_lidardata, sizeof(SLidarData)),
@@ -221,7 +226,7 @@ private:
 	boost::asio::serial_port m_serialLidar;
 	boost::asio::deadline_timer m_timer;
 	
-	SSensorData m_sensordata;
+	SOdometryData m_odometry;
 	FOnOdometryData m_funcOnOdometryData;
 
 	SLidarData m_lidardata;
@@ -276,23 +281,34 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 		auto tpStart = std::chrono::system_clock::now();
 		
 		SRobotConnection rc(io_service, strPort, strLidar, bManual,
-			 [&](SSensorData const& data) {
+			 [&](SOdometryData const& odom) {
 				if(ofsLog.is_open()) {
 					auto tpEnd = std::chrono::system_clock::now();
 					std::chrono::duration<double> durDiff = tpEnd-tpStart;
 
-					ofsLog << durDiff.count() << ";" 
-						<< data.m_nYaw << ";"
-						<< data.m_nAngle << ";"
-						<< data.m_nDistance;
-						
-					boost::for_each(data.m_anEncoderTicks, [&](short nEncoderTick) {
-						ofsLog << ";" << nEncoderTick; 
+					ofsLog << "o;" << durDiff.count() << ';'
+						<< odom.m_nFrontLeft << ';'
+						<< odom.m_nFrontRight << ';'
+						<< odom.m_nBackLeft << ';'
+						<< odom.m_nBackRight;
+					ofsLog << '\n';
+				}
+				scanline.add(odom);
+			 },
+			 [&](SLidarData const& lidar) {
+				if(ofsLog.is_open()) {
+					auto tpEnd = std::chrono::system_clock::now();
+					std::chrono::duration<double> durDiff = tpEnd-tpStart;
+
+					ofsLog << "l;" << durDiff.count() << ';';
+					ForEachAngleDistance(lidar, [&](int nAngle, int nDistance) {
+						ofsLog << ';' << nAngle << ';' << nDistance;
+						return true;
 					});
 					ofsLog << '\n';
 				}
 
-				if(!scanline.add(data)) {
+				if(!scanline.add(lidar)) {
 					{
 						std::unique_lock<std::mutex> lk(m);
 						deqscanline.emplace_back(scanline);
@@ -300,11 +316,10 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 					}
 					
 					scanline.clear();
-					scanline.add(data);
+					scanline.add(lidar);
 				}
-			 },
-			 [&](SLidarData const& lidar) {
-				 return boost::none;
+
+				return boost::none;
 			 }			 
 		); // throws boost::system:::system_error
 

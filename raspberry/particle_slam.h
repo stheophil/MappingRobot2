@@ -38,5 +38,3 @@ private:
 
     std::vector<SParticle> m_vecparticleTemp;
 }; 
-
-using CParticleSLAM = SAccumulateScanline<CParticleSlamBase>;

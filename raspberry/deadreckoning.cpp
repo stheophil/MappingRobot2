@@ -14,16 +14,19 @@
 CDeadReckoningMapping::CDeadReckoningMapping()
 {}
         
-void CDeadReckoningMapping::receivedSensorData(SSensorData const& data) {
+void CDeadReckoningMapping::receivedSensorData(SOdometryData const& odom) {
     auto const posePrev = m_vecpose.empty() 
-        ? rbt::pose<double>(rbt::point<double>::zero(), InitialYaw(data))
+        ? rbt::pose<double>(rbt::point<double>::zero(), 0)
         : m_vecpose.back();
     
-    auto const poseNew = UpdatePose(posePrev, data);
+    auto const poseNew = UpdatePose(posePrev, odom);
 
     m_vecpose.emplace_back(poseNew);
-    m_occgrid.update(poseNew, rbt::rad(data.m_nAngle), data.m_nDistance);    
 }
+
+// void CDeadReckoningMapping::receivedSensorData(SScanLine const& scanline) {
+//     m_occgrid.update(m_vecpose.back(), rbt::rad(data.m_nAngle), data.m_nDistance);    
+// }
 
 cv::Mat const& CDeadReckoningMapping::getMap() {
     return m_occgrid.ObstacleMap();

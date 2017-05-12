@@ -43,11 +43,9 @@ void SParticle::update(SScanLine const& scanline) {
 
     // OPTIMIZE: Recalculate occupancy grid after resampling?
     // OPTIMIZE: m_occgrid.update also sets occupancy of robot itself each time
-    scanline.ForEachScan(m_pose, 
-        [&](rbt::pose<double> const& poseScan, double fAngle, int nDistance) {
-            m_occgrid.update(poseScan, fAngle, nDistance);
-        });
-
+    boost::for_each(scanline.m_vecscan, [&](auto const& scan) {
+        m_occgrid.update(m_pose, scan.m_fRadAngle, scan.m_nDistance);
+    });
     cv::distanceTransform(m_occgrid.ObstacleMap(), m_matLikelihood, CV_DIST_L2, 3); 
 }
 

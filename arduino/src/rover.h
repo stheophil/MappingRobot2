@@ -39,19 +39,16 @@ struct SRobotCommand {
 
 static_assert(sizeof(SRobotCommand)==6, "");
 
-// TODO: Remove everything but odometry?
-struct SSensorData { // must be < 64 bytes
-    unsigned short m_nYaw; // in degrees x 100 (0, 359) both inclusive, (clock-wise!), USHRT_MAX -> no IMU
-    uint8_t m_nCalibSystem; // calibration data (0, 3) - 0 is uncalibrated
-    uint8_t m_nCalibGyro;
-    uint8_t m_nCalibAccel;
-    uint8_t m_nCalibMag;
-    short m_nAngle; // lidar measurement angle, counter-clockwise, in lidar frame of reference
-    short m_nDistance; // lidar distance in cm, in lidar frame of reference
-    short m_anEncoderTicks[4]; // front left, front right, back left, back right
+struct SOdometryData { 
+    short m_nFrontLeft;
+    short m_nFrontRight;
+    short m_nBackLeft;
+    short m_nBackRight;
 };
 
-struct SLidarData {
+constexpr uint8_t c_nFIRST_LIDAR_INDEX = 0xA0;
+
+struct SLidarData { // Neato XV11 Lidar packet
     uint8_t m_nReserved;
     uint8_t m_nIndex;
     uint16_t m_nSpeed; 
@@ -60,7 +57,7 @@ struct SLidarData {
         uint16_t m_nDistance : 14;
         uint8_t m_flagStrength : 1;
         uint8_t m_flagInvalidData : 1;
-        uint16_t m_nStrengthl
+        uint16_t m_nStrength;
     };
     static_assert(sizeof(SData)==4, "");
 
@@ -68,4 +65,4 @@ struct SLidarData {
 
     uint16_t m_nChecksum;
 };
-static_assert(sizeof(SLidar)==22, "");
+static_assert(sizeof(SLidarData)==22, "");

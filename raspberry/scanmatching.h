@@ -46,5 +46,3 @@ private:
     COccupancyGridWithObstacleList m_occgrid;
     std::vector<rbt::pose<double>> m_vecpose; // history of best poses
 }; 
-
-using CScanMatching = SAccumulateScanline<CScanMatchingBase>;

@@ -25,15 +25,11 @@ namespace {
     }
 }
 
-double InitialYaw(SSensorData const& sensordata) {
-    return 0; // ignore compass entirely for now
-}
-
-rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& sensordata) {
+rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SOdometryData const& odom) {
     // differential drive: http://planning.cs.uiuc.edu/node659.html
     // take average of two wheels on each side
-    auto const fRadLeft = encoderTicksToRadians((sensordata.m_anEncoderTicks[0] + sensordata.m_anEncoderTicks[2])/2);
-    auto const fRadRight = encoderTicksToRadians((sensordata.m_anEncoderTicks[1] + sensordata.m_anEncoderTicks[3])/2);
+    auto const fRadLeft = encoderTicksToRadians((odom.m_nFrontLeft + odom.m_nBackLeft)/2);
+    auto const fRadRight = encoderTicksToRadians((odom.m_nFrontRight + odom.m_nBackRight)/2);
 
     auto const fT = (fRadRight + fRadLeft)/2;
     auto const fR = fRadRight - fRadLeft;
@@ -112,9 +108,9 @@ double measurement_model_map(rbt::pose<double> const& pose,
     double const c_fSensorSigma = 2; // ~ +-10cm with current map scale, in grid coordinates
 
     double fWeight = 1.0;
-    scanline.ForEachScan(pose, [&](rbt::pose<double> const& poseScan, double fAngle, int nDistance) {
+    boost::for_each(scanline.m_vecscan, [&](auto const& scan) {
         double const fLikelihood = 
-            z_hit * gauss_probability( Distance(Obstacle(poseScan, fAngle, nDistance)), c_fSensorSigma) 
+            z_hit * gauss_probability( Distance(Obstacle(pose, scan.m_fRadAngle, scan.m_nDistance)), c_fSensorSigma) 
             + z_rand; 
         fWeight = fWeight * fLikelihood;
     });

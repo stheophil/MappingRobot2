@@ -39,5 +39,3 @@ private:
     
     std::vector<rbt::pose<double>> m_vecpose; // history of best poses
 }; 
-
-using CFastParticleSlam = SAccumulateScanline<CFastParticleSlamBase>;

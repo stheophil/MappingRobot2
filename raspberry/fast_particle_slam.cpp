@@ -33,8 +33,8 @@ void SFastSlamParticle::updatePose(SScanLine const& scanline) {
 }
 
 void SFastSlamParticle::updateMap(SScanLine const& scanline) {
-    scanline.ForEachScan(m_pose, [&](auto const& poseScan, double fAngle, int nDistance) {
-        m_occgrid.update(poseScan, fAngle, nDistance);
+    boost::for_each(scanline.m_vecscan, [&](auto const& scan) {
+        m_occgrid.update(m_pose, scan.m_fRadAngle, scan.m_nDistance);
     });
 }
 

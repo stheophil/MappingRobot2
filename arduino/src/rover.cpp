@@ -143,7 +143,7 @@ void OnDisconnection();
 
 void setup()
 {    
-    Serial.begin(230400);
+    Serial.begin(115200);
     delay(3000);  //3 seconds delay for enabling to see the start up comments on the serial board
 
     // Show we are in setup
@@ -247,17 +247,12 @@ void SendSensorData() {
     if(100<nMillis-g_nLastSensorData) {
         g_nLastSensorData = nMillis;
         // TODO: Transmit current or make emergency stop if motor current too high
-        SSensorData data = {
-            UINT16_MAX, 
-            0, 0, 0, 0,
-            0,
-            0,
+        SOdometryData data = {
             g_amotors[0].Pop(),
             g_amotors[1].Pop(),
             g_amotors[2].Pop(),
             g_amotors[3].Pop()
         };
-
         Serial.write((byte*)&data, sizeof(data));
     }
 }

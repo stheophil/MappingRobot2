@@ -14,8 +14,7 @@
 // for the particle filter
 
 // Motion model
-double InitialYaw(SSensorData const& sensordata);
-rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SSensorData const& sensordata); 
+rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SOdometryData const& odom); 
 
 // Occupancy grid
 int constexpr c_nScale = 5; // 5cm / px
@@ -62,9 +61,10 @@ double log_likelihood_field(rbt::pose<double> const& pose, SScanLine const& scan
 #ifdef ENABLE_LOG
     int nCountObstacle = 0;
 #endif
-    scanline.ForEachScan(pose, [&](rbt::pose<double> const& poseScan, double fAngle, int nDistance) {
-        auto ptfOccupied = Obstacle(poseScan, fAngle, nDistance);
-        auto ptfFree = Obstacle(poseScan, fAngle, nDistance - c_nScale*c_fSqrt2);
+
+    boost::for_each(scanline.m_vecscan, [&](auto const& scan) {
+        auto ptfOccupied = Obstacle(pose, scan.m_fRadAngle, scan.m_nDistance);
+        auto ptfFree = Obstacle(pose, scan.m_fRadAngle, scan.m_nDistance - c_nScale*c_fSqrt2);
         
         auto const ptnOccupied = ToGridCoordinate(ptfOccupied);
         auto const ptnFree = ToGridCoordinate(ptfFree);

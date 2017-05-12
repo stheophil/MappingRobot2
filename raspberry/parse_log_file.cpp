@@ -5,13 +5,14 @@
 
 #include <stdio.h>
 #include <chrono>
+#include <fstream>
 
 #include <boost/optional.hpp>
 
 #include <opencv2/imgcodecs/imgcodecs.hpp>     // cv::imread()
 #include <opencv2/opencv.hpp>
 
-int ParseLogFile(std::FILE* fp, bool bVideo, boost::optional<std::string> const& ostrOutput) {
+int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> const& ostrOutput) {
     cv::VideoWriter vid;
     
     if(bVideo && ostrOutput) {
@@ -25,19 +26,16 @@ int ParseLogFile(std::FILE* fp, bool bVideo, boost::optional<std::string> const&
     
     auto const tpStart = std::chrono::system_clock::now();
 
-    CFastParticleSlam rbt;
-    SSensorData data; // TODO: Read lidar data and odometry
+    CFastParticleSlamBase rbt;
+    SScanLine scanline;
 
-    while(7==std::fscanf(fp, "%*f;%hd;%hd;%hd;%hd;%hd;%hd;%hd\n", 
-        &data.m_nYaw, &data.m_nAngle, &data.m_nDistance,
-        &data.m_anEncoderTicks[0], &data.m_anEncoderTicks[1], 
-        &data.m_anEncoderTicks[2], &data.m_anEncoderTicks[3])) 
-    { 
-        if(rbt.receivedSensorData(data) && vid.isOpened()) {
-				cv::Mat matTemp;
-				cv::cvtColor(rbt.getMapWithPoses(), matTemp, cv::COLOR_GRAY2RGB);
-				vid << matTemp;
-        }
+    for( std::string strLine; std::getline( ifs, strLine ); ) {
+    // TODO: Read odometry / lidar packages into scanline
+    //     if(rbt.receivedSensorData(data) && vid.isOpened()) {
+	// 			cv::Mat matTemp;
+	// 			cv::cvtColor(rbt.getMapWithPoses(), matTemp, cv::COLOR_GRAY2RGB);
+	// 			vid << matTemp;
+    //     }
     }
 
     if(!bVideo && ostrOutput) {
