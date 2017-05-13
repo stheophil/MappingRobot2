@@ -17,6 +17,7 @@ using namespace std::chrono_literals;
 #include <boost/asio.hpp>
 #include <boost/algorithm/cxx11/all_of.hpp>
 #include <boost/range/algorithm/for_each.hpp>
+#include <boost/range/algorithm/find.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <boost/optional.hpp>
@@ -58,7 +59,7 @@ enum ECalibration {
 };
 
 using FOnOdometryData = std::function< void (SOdometryData const&) >;
-using FOnLidarData = std::function< boost::optional<SRobotCommand>(SLidarData const&) >;
+using FOnLidarData = std::function< void(std::vector<unsigned char>) >;
 
 /*
 	Connection to robot using boost::asio 
@@ -89,10 +90,6 @@ struct SRobotConnection : SConfigureStdin {
 		m_serialLidar.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
 		m_serialLidar.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
 
-		wait_for_command();
-		wait_for_sensor_data();
-		wait_for_lidar_data();
-
 		// Send synchronous connection request
 		auto SendCommand = [&](SRobotCommand cmd) {
 			VERIFYEQUAL(boost::asio::write(m_serialOdo, boost::asio::buffer(&cmd, sizeof(decltype(cmd)))), sizeof(decltype(cmd)));
@@ -104,6 +101,10 @@ struct SRobotConnection : SConfigureStdin {
 
 		std::cout << "Connecting to Controller\n";
 		SendCommand(SRobotCommand::connect()); // throws boost::system:::system_error
+		
+		wait_for_command();
+		wait_for_sensor_data();
+		wait_for_lidar_data();
 	}
 
 	~SRobotConnection() {
@@ -175,19 +176,21 @@ struct SRobotConnection : SConfigureStdin {
 	
 	void wait_for_lidar_data() {
 		// TODO: Separate time-out timer for lidar data?
+		// We read a large chunk of the lidar data and then filter the invalid packets. 
+		// The XV11 serial data was not 100% reliable. Syncing to the lidar stream and 
+		// then relying on the validity of the data didn't work. 
+		m_vecbBuffer.resize(c_cbLIDAR_FULL_ROTATION);
 		boost::asio::async_read(
 			m_serialLidar, 
-			boost::asio::buffer(&m_lidardata, sizeof(SLidarData)),
+			boost::asio::buffer(m_vecbBuffer),
 			[&](boost::system::error_code const& ec, std::size_t length) {
 				ASSERT(!ec);
-				ASSERT(length==sizeof(SLidarData));
-
+				ASSERT(length==m_vecbBuffer.size());
 				// Ignore further data if we're waiting for the last reset command to be delivered
 				if(m_bShutdown) return;
 				// m_timer.cancel();
 
-				m_funcOnLidarData(m_lidardata);
-
+				m_funcOnLidarData(std::move(m_vecbBuffer));
 				wait_for_lidar_data();
 			}); 
 	}
@@ -229,7 +232,7 @@ private:
 	SOdometryData m_odometry;
 	FOnOdometryData m_funcOnOdometryData;
 
-	SLidarData m_lidardata;
+	std::vector<unsigned char> m_vecbBuffer;
 	FOnLidarData m_funcOnLidarData;
 
 	boost::object_pool<SRobotCommand> m_poolrcmd;
@@ -292,34 +295,49 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 						<< odom.m_nBackLeft << ';'
 						<< odom.m_nBackRight;
 					ofsLog << '\n';
+				} else {
+					// scanline.add(odom);
 				}
-				scanline.add(odom);
 			 },
-			 [&](SLidarData const& lidar) {
+			 [&](std::vector<unsigned char> vecblidar) {
+				SScanLine scanline;
+				auto itb = std::find(vecblidar.begin(), vecblidar.end(), 0xFA);
+				do {
+					auto itbNext = std::find(boost::next(itb), vecblidar.end(), 0xFA);
+
+					if(itbNext-itb == sizeof(SLidarData)) {
+						SLidarData const& lidar = *reinterpret_cast<SLidarData*>(std::addressof(*itb));
+						if(lidar.ValidChecksum()) {
+							scanline.add(lidar);
+						}
+					}
+					itb = itbNext;
+				} while(itb != vecblidar.end());
+
 				if(ofsLog.is_open()) {
-					auto tpEnd = std::chrono::system_clock::now();
+				 	auto tpEnd = std::chrono::system_clock::now();
 					std::chrono::duration<double> durDiff = tpEnd-tpStart;
 
 					ofsLog << "l;" << durDiff.count() << ';';
-					ForEachAngleDistance(lidar, [&](int nAngle, int nDistance) {
-						ofsLog << ';' << nAngle << ';' << nDistance;
-						return true;
+					boost::for_each(scanline.m_vecscan, [&](SScanLine::SScan const& scan) {
+						ofsLog << scan.m_nAngle << '/' << scan.m_nDistance << ';';
 					});
 					ofsLog << '\n';
+				} else {
+					// Replace scanline with this one. There is no need to accumulate
+					// data faster than we can process it. Collect statistics with which 
+					// frequency we process the data.
+					// if(!scanline.add(lidar)) {
+					// 	{
+					// 		std::unique_lock<std::mutex> lk(m);
+					// 		deqscanline.emplace_back(scanline);
+					// 		cv.notify_one();
+					// 	}
+						
+					// 	scanline.clear();
+					// 	scanline.add(lidar);
+					// }
 				}
-
-				if(!scanline.add(lidar)) {
-					{
-						std::unique_lock<std::mutex> lk(m);
-						deqscanline.emplace_back(scanline);
-						cv.notify_one();
-					}
-					
-					scanline.clear();
-					scanline.add(lidar);
-				}
-
-				return boost::none;
 			 }			 
 		); // throws boost::system:::system_error
 

@@ -1,6 +1,22 @@
 #include "scanline.h"
 #include "robot_configuration.h"
 
+bool SLidarData::ValidChecksum() const {
+    int nChecksum = 0;
+
+    static_assert(sizeof(SLidarData)==22, "");
+    static_assert(sizeof(m_nChecksum)==2, "");
+    for(unsigned short const* pshort = reinterpret_cast<unsigned short const*>(this);
+        pshort < reinterpret_cast<unsigned short const*>(this)+10;
+        ++pshort) 
+    {
+        nChecksum = (nChecksum << 1) + *pshort;
+    }
+    nChecksum = (nChecksum & 0x7FFF) + (nChecksum >> 15);
+    nChecksum &= 0x7FFF;
+
+    return nChecksum == m_nChecksum;
+}
 /////////////////////
 // SScanLine
 

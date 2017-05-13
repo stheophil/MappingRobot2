@@ -47,6 +47,7 @@ struct SOdometryData {
 };
 
 constexpr uint8_t c_nFIRST_LIDAR_INDEX = 0xA0;
+constexpr uint8_t c_nFIRST_LIDAR_BYTE = 0xFA;
 
 struct SLidarData { // Neato XV11 Lidar packet
     uint8_t m_nReserved;
@@ -54,15 +55,20 @@ struct SLidarData { // Neato XV11 Lidar packet
     uint16_t m_nSpeed; 
 
     struct SData {
-        uint16_t m_nDistance : 14;
-        uint8_t m_flagStrength : 1;
-        uint8_t m_flagInvalidData : 1;
+        unsigned int m_nDistance : 14;
+        unsigned int m_flagStrength : 1;
+        unsigned int m_flagInvalidData : 1;
         uint16_t m_nStrength;
-    };
+    } __attribute__((packed));
     static_assert(sizeof(SData)==4, "");
 
     SData m_adata[4];
 
     uint16_t m_nChecksum;
-};
+
+    bool ValidChecksum() const;
+} __attribute__((packed));
+static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "");
 static_assert(sizeof(SLidarData)==22, "");
+
+constexpr size_t c_cbLIDAR_FULL_ROTATION = sizeof(SLidarData) * 90;
