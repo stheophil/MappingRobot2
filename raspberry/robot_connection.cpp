@@ -247,21 +247,16 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 		std::mutex m;
 		CFastParticleSlamBase pfslam;
 		std::condition_variable cv;
-		std::deque<SScanLine> deqscanline;
+		SScanLine scanlineNext;
 		
-		std::thread t([&pfslam, &m, &cv, &deqscanline, &strOutput] {
+		std::thread t([&pfslam, &m, &cv, &scanlineNext, &strOutput] {
 			while(true) {	
 				SScanLine scanline;
 				{
 					std::unique_lock<std::mutex> lk(m);
-					cv.wait(lk, [&]{ return !deqscanline.empty(); });
-					
-					if(1<deqscanline.size()) {
-						std::cout << "Warning: Scan line queue size is " << deqscanline.size() << std::endl;
-					}
-					
-					scanline = std::move(deqscanline.front());
-					deqscanline.pop_front();
+					cv.wait(lk, [&]{ return !scanline.m_vecscan.empty(); });
+					scanline = std::move(scanlineNext);
+					scanlineNext.clear();
 				}
 				
 				pfslam.receivedSensorData(scanline);
@@ -280,9 +275,7 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 		
 		boost::asio::io_service io_service;
 		
-		SScanLine scanline;
-		auto tpStart = std::chrono::system_clock::now();
-		
+		auto tpStart = std::chrono::system_clock::now();		
 		SRobotConnection rc(io_service, strPort, strLidar, bManual,
 			 [&](SOdometryData const& odom) {
 				if(ofsLog.is_open()) {
@@ -296,11 +289,12 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 						<< odom.m_nBackRight;
 					ofsLog << '\n';
 				} else {
-					// scanline.add(odom);
+					std::unique_lock<std::mutex> lk(m);
+					scanlineNext.add(odom);
 				}
 			 },
 			 [&](std::vector<unsigned char> vecblidar) {
-				SScanLine scanline;
+				std::vector<SScanLine::SScan> vecscan;
 				auto itb = std::find(vecblidar.begin(), vecblidar.end(), 0xFA);
 				do {
 					auto itbNext = std::find(boost::next(itb), vecblidar.end(), 0xFA);
@@ -308,7 +302,9 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 					if(itbNext-itb == sizeof(SLidarData)) {
 						SLidarData const& lidar = *reinterpret_cast<SLidarData*>(std::addressof(*itb));
 						if(lidar.ValidChecksum()) {
-							scanline.add(lidar);
+							ForEachScan(lidar, [&](SScanLine::SScan const& scan) {
+								vecscan.emplace_back(scan);
+							});
 						}
 					}
 					itb = itbNext;
@@ -319,24 +315,14 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 					std::chrono::duration<double> durDiff = tpEnd-tpStart;
 
 					ofsLog << "l;" << durDiff.count() << ';';
-					boost::for_each(scanline.m_vecscan, [&](SScanLine::SScan const& scan) {
+					boost::for_each(vecscan, [&](SScanLine::SScan const& scan) {
 						ofsLog << scan.m_nAngle << '/' << scan.m_nDistance << ';';
 					});
 					ofsLog << '\n';
 				} else {
-					// Replace scanline with this one. There is no need to accumulate
-					// data faster than we can process it. Collect statistics with which 
-					// frequency we process the data.
-					// if(!scanline.add(lidar)) {
-					// 	{
-					// 		std::unique_lock<std::mutex> lk(m);
-					// 		deqscanline.emplace_back(scanline);
-					// 		cv.notify_one();
-					// 	}
-						
-					// 	scanline.clear();
-					// 	scanline.add(lidar);
-					// }
+					std::unique_lock<std::mutex> lk(m);
+					scanlineNext.m_vecscan = std::move(vecscan);
+					cv.notify_one();					
 				}
 			 }			 
 		); // throws boost::system:::system_error

@@ -19,17 +19,10 @@ bool SLidarData::ValidChecksum() const {
 }
 /////////////////////
 // SScanLine
-
-bool SScanLine::add(SLidarData const& lidar) {
-    return ForEachAngleDistance(lidar, [&](int nAngle, int nDistance) {
-		return add(nAngle, nDistance);
+void SScanLine::add(SLidarData const& lidar) {
+    ForEachScan(lidar, [&](SScanLine::SScan const& scan) {
+		m_vecscan.emplace_back(scan);
     });
-}
-
-bool SScanLine::add(int nAngle, int nDistance) {
-    if(!m_vecscan.empty() && m_vecscan.front().m_nAngle==nAngle) return false;
-    m_vecscan.emplace_back(nAngle, nDistance);
-    return true;
 }
 
 void SScanLine::add(SOdometryData const& odom) {
@@ -45,5 +38,6 @@ double SScanLine::rotation() const {
 }
 
 void SScanLine::clear() {
+    m_pose = rbt::pose<double>::zero();
     m_vecscan.clear();
 }

@@ -9,20 +9,6 @@
 
 // The robot moves while the scan line is being accumulated and this is an
 // error source. With the relatively fast XV11 Neato Lidar, we ignore this error.
-template<typename Func>
-bool ForEachAngleDistance(SLidarData const& lidar, Func fn) {
-    bool bContinue = true;
-    int nAngle = (lidar.m_nIndex - c_nFIRST_LIDAR_INDEX) * 4;
-    for(auto it = boost::begin(lidar.m_adata); it!=boost::end(lidar.m_adata) && bContinue; ++it) {
-        if(!it->m_flagInvalidData) {
-            bContinue = fn(nAngle, it->m_nDistance);
-            ASSERT(bContinue || boost::begin(lidar.m_adata)==it);
-        }
-        ++nAngle;
-    }
-    return bContinue;
-}
-
 struct SScanLine {
     struct SScan {
         SScan(int nAngle, int nDistance)
@@ -42,8 +28,18 @@ struct SScanLine {
     
     // returns false iff scan line is complete, i.e., contains 360 degree measurements
     // and data belongs into new SScanLine
-    bool add(SLidarData const& data);
-    bool add(int nAngle, int nDistance);
+    void add(SLidarData const& data);
     void add(SOdometryData const& odom); 
     void clear();
 };
+
+template<typename Func>
+void ForEachScan(SLidarData const& lidar, Func fn) {
+    int nAngle = (lidar.m_nIndex - c_nFIRST_LIDAR_INDEX) * 4;
+    for(auto it = boost::begin(lidar.m_adata); it!=boost::end(lidar.m_adata); ++it) {
+        if(!it->m_flagInvalidData) {
+            fn(SScanLine::SScan(nAngle, it->m_nDistance));
+        }
+        ++nAngle;
+    }
+}
