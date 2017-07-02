@@ -38,7 +38,7 @@ void ForEachScan(SLidarData const& lidar, Func fn) {
     int nAngle = (lidar.m_nIndex - c_nFIRST_LIDAR_INDEX) * 4;
     for(auto it = boost::begin(lidar.m_adata); it!=boost::end(lidar.m_adata); ++it) {
         if(!it->m_flagInvalidData) {
-            fn(SScanLine::SScan(nAngle, it->m_nDistance));
+            fn(SScanLine::SScan(nAngle, it->m_nDistance/10)); // SLidarData reports distance is in mm
         }
         ++nAngle;
     }
