@@ -254,7 +254,7 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 				SScanLine scanline;
 				{
 					std::unique_lock<std::mutex> lk(m);
-					cv.wait(lk, [&]{ return !scanline.m_vecscan.empty(); });
+					cv.wait(lk, [&]{ return !scanlineNext.m_vecscan.empty(); });
 					scanline = std::move(scanlineNext);
 					scanlineNext.clear();
 				}
