@@ -1,21 +1,5 @@
-[submodule "arduino/lib/BNO055"]
-	path = arduino/lib/BNO055
-	url = https://github.com/adafruit/Adafruit_BNO055
-	ignore = untracked
 
 [submodule "arduino/lib/PID"]
 	path = arduino/lib/PID
 	url = https://github.com/br3ttb/Arduino-PID-Library/
-	ignore = untracked
-[submodule "arduino/lib/XL320"]
-	path = arduino/lib/XL320
-	url = https://github.com/hackerspace-adelaide/XL320
-	ignore = untracked
-[submodule "arduino/lib/HalfDuplex"]
-	path = arduino/lib/HalfDuplex
-	url = https://github.com/hackerspace-adelaide/HalfDuplexHardwareSerial
-	ignore = untracked
-[submodule "arduino/lib/LIDAR"]
-	path = arduino/lib/LIDAR
-	url = https://github.com/PulsedLight3D/LIDARLite_v2_Arduino_Library
 	ignore = untracked
