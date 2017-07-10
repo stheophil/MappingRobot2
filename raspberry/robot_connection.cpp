@@ -246,10 +246,11 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 		// State shared with parallel thread
 		std::mutex m;
 		CFastParticleSlamBase pfslam;
-		std::condition_variable cv;
+		std::condition_variable cv;		
 		SScanLine scanlineNext;
 		
 		std::thread t([&pfslam, &m, &cv, &scanlineNext, &strOutput] {
+			bool bLastUpdateZeroMovement = false;
 			while(true) {	
 				SScanLine scanline;
 				{
@@ -259,23 +260,30 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 					scanlineNext.clear();
 				}
 				
-				pfslam.receivedSensorData(scanline);
-				if(strOutput) {
-					try {					
-						cv::imwrite(strOutput.get(), pfslam.getMapWithPose());	
-					} catch(std::exception const& e) {
-						std::cerr << "Error writing to " << strOutput.get() << ": " << e.what() << std::endl;
-					} catch(...) {
-						std::cerr << "Unknown error writing to " << strOutput.get() << std::endl;
-						std::abort();
-					}
-				}	
+				auto const bZeroMovement = scanline.translation()==rbt::size<double>::zero() && scanline.rotation()==0.0;
+				if(!bLastUpdateZeroMovement || !bZeroMovement) { // ignore successive scans with zero movement
+					bLastUpdateZeroMovement = bZeroMovement;
+
+					pfslam.receivedSensorData(scanline);
+					if(strOutput) {
+						try {					
+							cv::imwrite(strOutput.get(), pfslam.getMapWithPose());	
+						} catch(std::exception const& e) {
+							std::cerr << "Error writing to " << strOutput.get() << ": " << e.what() << std::endl;
+						} catch(...) {
+							std::cerr << "Unknown error writing to " << strOutput.get() << std::endl;
+							std::abort();
+						}
+					}	
+				}
 			}
 		});
 		
 		boost::asio::io_service io_service;
 		
-		auto tpStart = std::chrono::system_clock::now();		
+		auto tpStart = std::chrono::system_clock::now();
+		auto tpLastLidarMessage = std::chrono::system_clock::now();
+		int cLidarUpdates = 0;
 		SRobotConnection rc(io_service, strPort, strLidar, bManual,
 			 [&](SOdometryData const& odom) {
 				if(ofsLog.is_open()) {
@@ -309,6 +317,19 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 					}
 					itb = itbNext;
 				} while(itb != vecblidar.end());
+
+				{
+					++cLidarUpdates;
+
+					auto tpMessage = std::chrono::system_clock::now();
+					std::chrono::duration<double> durDiff = tpMessage - tpLastLidarMessage;
+					if(30 < durDiff) {
+						std::cout << "Lidar update frequency " << (cLidarUpdates/durDiff) << " Hz\n";
+
+						tpLastLidarMessage = tpMessage;
+						cLidarUpdates = 0;
+					}
+				}
 
 				if(ofsLog.is_open()) {
 				 	auto tpEnd = std::chrono::system_clock::now();
