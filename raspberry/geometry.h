@@ -67,7 +67,8 @@ namespace rbt {
     template<typename T>
     struct size :
         boost::additive<size<T>,
-        boost::multiplicative2<size<T>, T>>
+        boost::multiplicative2<size<T>, T,
+        boost::equality_comparable<size<T>>>>
     {
         T x;
         T y;
@@ -96,6 +97,8 @@ namespace rbt {
         
         T operator*(size<T> const& rhs) const;
         
+        bool operator==(size<T> const& sz);
+
         // < 0 -> v is left of this
         // > 0 -> v is right of this
         int compare(size const& sz) const;
@@ -253,6 +256,11 @@ namespace rbt {
         return x*rhs.x + y*rhs.y;
     }
     
+    template<typename T>
+    bool size<T>::operator==(size<T> const& sz) {
+        return x==sz.x && y==sz.y;
+    }
+
     template<typename T>
     int size<T>::compare(size<T> const& sz) const {
         auto d = y * sz.x - x * sz.y;

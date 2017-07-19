@@ -323,8 +323,8 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 
 					auto tpMessage = std::chrono::system_clock::now();
 					std::chrono::duration<double> durDiff = tpMessage - tpLastLidarMessage;
-					if(30 < durDiff) {
-						std::cout << "Lidar update frequency " << (cLidarUpdates/durDiff) << " Hz\n";
+					if(30 < durDiff.count()) {
+						std::cout << "Lidar update frequency " << (cLidarUpdates/durDiff.count()) << " Hz\n";
 
 						tpLastLidarMessage = tpMessage;
 						cLidarUpdates = 0;
