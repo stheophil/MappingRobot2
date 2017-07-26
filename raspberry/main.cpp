@@ -1,5 +1,8 @@
 #include "error_handling.h"
 
+#include "rover.h"
+#include "scanline.h"
+
 #include <chrono>
 #include <iostream>
 #include <fstream>
@@ -71,10 +74,10 @@ int main(int nArgs, char* aczArgs[]) {
 
         bool const bVideo = vm.count(c_szVIDEO);
         boost::optional<std::string> ostrOutput = vm.count(c_szOUTPUT)
-            ? boost::make_optional(vm[c_szOUTPUT].as<std::string>())
-            : boost::none;
+             ? boost::make_optional(vm[c_szOUTPUT].as<std::string>())
+             : boost::none;
         
-        return ParseLogFile(ifs, bVideo, ostrOutput);
+         return ParseLogFile(ifs, bVideo, ostrOutput);		
 	} else if(vm.count(c_szPORT) && vm.count(c_szLIDAR)) {
 		// Read serial port, log file name etc
 		auto const strPort = vm[c_szPORT].as<std::string>();

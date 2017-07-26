@@ -55,7 +55,7 @@ int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> c
                         int nAngle;
                         int nDistance;
                         if(2==sscanf(&strLine[i+1], "%d/%d", &nAngle, &nDistance)) {
-                            vecscan.emplace_back(nAngle, nDistance);
+                            vecscan.emplace_back(nAngle < 180 ? nAngle + 180 : nAngle - 180, nDistance);
                         } else {
                             std::cerr << "Invalid lidar data: " << &strLine[i] << std::endl;
                         }
