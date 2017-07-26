@@ -97,7 +97,7 @@ namespace rbt {
         
         T operator*(size<T> const& rhs) const;
         
-        bool operator==(size<T> const& sz);
+        bool operator==(size<T> const& sz) const;
 
         // < 0 -> v is left of this
         // > 0 -> v is right of this
@@ -257,7 +257,7 @@ namespace rbt {
     }
     
     template<typename T>
-    bool size<T>::operator==(size<T> const& sz) {
+    bool size<T>::operator==(size<T> const& sz) const {
         return x==sz.x && y==sz.y;
     }
 
