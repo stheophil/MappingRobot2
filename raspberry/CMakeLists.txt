@@ -44,6 +44,7 @@ add_executable(robot
 	scanline.cpp
     scanmatching.h
 	scanmatching.cpp
+	robot_strategy.cpp
 	main.cpp
     error_handling.h
 	error_handling.cpp

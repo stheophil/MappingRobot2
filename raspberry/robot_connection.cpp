@@ -2,7 +2,7 @@
 #include "rover.h"
 #include "robot_configuration.h"
 
-#include "fast_particle_slam.h"
+#include "robot_strategy.h"
 
 #include <chrono>
 #include <future>
@@ -60,7 +60,7 @@ enum ECalibration {
 
 using FOnOdometryData = std::function< void (SOdometryData const&) >;
 using FOnLidarData = std::function< void(std::vector<unsigned char>) >;
-
+using FOnChar = std::function< void(char) >;
 /*
 	Connection to robot using boost::asio 
 	Resets and syncs with connected robot microcontroller.
@@ -73,7 +73,8 @@ struct SRobotConnection : SConfigureStdin {
 		std::string const& strPort, std::string const& strLidar, 
 		bool bManual, 
 		FOnOdometryData funcOdometry,
-		FOnLidarData funcLidar
+		FOnLidarData funcLidar,
+		FOnChar funcOnChar
 	)
 		: m_io_service(io_service)
 		, m_stdin(io_service, ::dup(STDIN_FILENO))
@@ -82,6 +83,7 @@ struct SRobotConnection : SConfigureStdin {
 		, m_timer(io_service, boost::posix_time::seconds(60))
 		, m_funcOnOdometryData(funcOdometry)
 		, m_funcOnLidarData(funcLidar)
+		, m_funcOnChar(funcOnChar)
 		, m_bManual(bManual)
 	{
 		m_serialLidar.set_option(boost::asio::serial_port_base::baud_rate(115200));
@@ -95,13 +97,22 @@ struct SRobotConnection : SConfigureStdin {
 			VERIFYEQUAL(boost::asio::write(m_serialOdo, boost::asio::buffer(&cmd, sizeof(decltype(cmd)))), sizeof(decltype(cmd)));
 		};
 
+		std::cout << "Available keyboard commands: " << std::endl;
+		std::cout << "x - shutdown robot" << std::endl;
+		std::cout << "x\t- shutdown robot" << std::endl;
+		if(bManual) {
+			std::cout << "e,r,t\t- drive forward left, forward, forward right" << std::endl;
+			std::cout << "d,g\t- turn left, turn right" << std::endl;
+			std::cout << "c,v,b\t- drive backward left, backward, backward right" << std::endl;
+		}
+		
 		std::cout << "Resetting Controller\n";
 		SendCommand(SRobotCommand::reset()); // throws boost::system:::system_error
 		std::this_thread::sleep_for(1s);
 
 		std::cout << "Connecting to Controller\n";
 		SendCommand(SRobotCommand::connect()); // throws boost::system:::system_error
-		
+	
 		wait_for_command();
 		wait_for_sensor_data();
 		wait_for_lidar_data();
@@ -127,21 +138,35 @@ struct SRobotConnection : SConfigureStdin {
 						std::cout << "Shutting down.\n";
 						Shutdown();
 						return; // Don't wait for further commands
-					default: 
-						if(m_bManual) {
-							switch(m_ch) {
-								case 'e': send_command(SRobotCommand::forward_left()); break;
-								case 'r': send_command(SRobotCommand::forward()); break;
-								case 't': send_command(SRobotCommand::forward_right()); break;
+					case 'e': 
+						if(m_bManual) send_command(SRobotCommand::forward_left()); 
+						break;
+					case 'r': 
+						if(m_bManual) send_command(SRobotCommand::forward()); 
+						break;
+					case 't': 
+						if(m_bManual) send_command(SRobotCommand::forward_right()); 
+						break;
 
-								case 'd': send_command(SRobotCommand::left_turn()); break;
-								case 'g': send_command(SRobotCommand::right_turn()); break;
+					case 'd': 
+						if(m_bManual) send_command(SRobotCommand::left_turn()); 
+						break;
+					case 'g': 
+						if(m_bManual) send_command(SRobotCommand::right_turn()); 
+						break;
 
-								case 'c': send_command(SRobotCommand::backward_left()); break;
-								case 'v': send_command(SRobotCommand::backward()); break;
-								case 'b': send_command(SRobotCommand::backward_right()); break;
-							}
-						}					
+					case 'c': 
+						if(m_bManual) send_command(SRobotCommand::backward_left()); 
+						break;
+					case 'v': 
+						if(m_bManual) send_command(SRobotCommand::backward()); 
+						break;
+					case 'b': 
+						if(m_bManual) send_command(SRobotCommand::backward_right()); 
+						break;
+					default:
+						m_funcOnChar(m_ch);
+						break;
 				}
 
 				wait_for_command();
@@ -235,6 +260,8 @@ private:
 	std::vector<unsigned char> m_vecbBuffer;
 	FOnLidarData m_funcOnLidarData;
 
+	FOnChar m_funcOnChar;
+
 	boost::object_pool<SRobotCommand> m_poolrcmd;
 	
 	bool const m_bManual;
@@ -243,41 +270,14 @@ private:
 int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std::ofstream& ofsLog, bool bManual, boost::optional<std::string> const& strOutput) {
 	// Establish robot connection via serial port
 	try {
-		// State shared with parallel thread
-		std::mutex m;
-		CFastParticleSlamBase pfslam;
-		std::condition_variable cv;		
-		SScanLine scanlineNext;
-		
-		std::thread t([&pfslam, &m, &cv, &scanlineNext, &strOutput] {
-			bool bLastUpdateZeroMovement = false;
-			while(true) {	
-				SScanLine scanline;
-				{
-					std::unique_lock<std::mutex> lk(m);
-					cv.wait(lk, [&]{ return !scanlineNext.m_vecscan.empty(); });
-					scanline = std::move(scanlineNext);
-					scanlineNext.clear();
-				}
-				
-				auto const bZeroMovement = scanline.translation()==rbt::size<double>::zero() && scanline.rotation()==0.0;
-				if(!bLastUpdateZeroMovement || !bZeroMovement) { // ignore successive scans with zero movement
-					bLastUpdateZeroMovement = bZeroMovement;
+		CRobotStrategy robotstrategy;
+		robotstrategy.PrintHelp();
 
-					pfslam.receivedSensorData(scanline);
-					if(strOutput) {
-						try {					
-							cv::imwrite(strOutput.get(), pfslam.getMapWithPose());	
-						} catch(std::exception const& e) {
-							std::cerr << "Error writing to " << strOutput.get() << ": " << e.what() << std::endl;
-						} catch(...) {
-							std::cerr << "Unknown error writing to " << strOutput.get() << std::endl;
-							std::abort();
-						}
-					}	
-				}
-			}
-		});
+		// State shared between main thread communicating with robot, 
+		// and helper thread handling sensory input
+		std::mutex m;
+		std::condition_variable cv;
+		SScanLine scanlineNext;
 		
 		boost::asio::io_service io_service;
 		
@@ -296,10 +296,10 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 						<< odom.m_nBackLeft << ';'
 						<< odom.m_nBackRight;
 					ofsLog << '\n';
-				} else {
-					std::unique_lock<std::mutex> lk(m);
-					scanlineNext.add(odom);
-				}
+				} 
+				
+				std::unique_lock<std::mutex> lk(m);
+				scanlineNext.add(odom);
 			 },
 			 [&](std::vector<unsigned char> vecblidar) {
 				std::vector<SScanLine::SScan> vecscan;
@@ -340,14 +340,18 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 						ofsLog << scan.m_nAngle << '/' << scan.m_nDistance << ';';
 					});
 					ofsLog << '\n';
-				} else {
-					std::unique_lock<std::mutex> lk(m);
-					scanlineNext.m_vecscan = std::move(vecscan);
-					cv.notify_one();					
-				}
-			 }			 
+				} 
+					
+				std::unique_lock<std::mutex> lk(m);
+				scanlineNext.m_vecscan = std::move(vecscan);
+				cv.notify_one();
+			 },
+			 [&](char ch) {
+				 robotstrategy.OnChar(ch);
+			 }		 
 		); // throws boost::system:::system_error
 
+		// Setup HTTP server to receive control commands
 		MHD_Daemon* pdaemon = nullptr;
 		if(bManual) {
 			std::cout << "Starting server on port 8088" << std::endl;
@@ -417,7 +421,42 @@ int ConnectToRobot(std::string const& strPort, std::string const& strLidar, std:
 			);
 			ASSERT(pdaemon);
 			std::cout << "Started http server on port 8088." << std::endl;
+			std::cout << "See raspberry/html/map.html for an example on how to control the robot via http" << std::endl;
 		}
+
+		std::thread t([&robotstrategy, &rc, &bManual, &m, &cv, &scanlineNext, &strOutput] {
+			bool bLastUpdateZeroMovement = false;
+			while(true) {	
+				SScanLine scanline;
+				{
+					std::unique_lock<std::mutex> lk(m);
+					cv.wait(lk, [&]{ return !scanlineNext.m_vecscan.empty(); });
+					scanline = std::move(scanlineNext);
+					scanlineNext.clear();
+				}
+				
+				auto const bZeroMovement = scanline.translation()==rbt::size<double>::zero() && scanline.rotation()==0.0;
+				if(!bLastUpdateZeroMovement || !bZeroMovement) { // ignore successive scans with zero movement
+					bLastUpdateZeroMovement = bZeroMovement;
+
+					auto const rcmd = robotstrategy.receivedSensorData(scanline);
+					if(!bManual) {
+						rc.send_command(rcmd);
+					}
+
+					if(strOutput) {
+						try {					
+							cv::imwrite(strOutput.get(), robotstrategy.getMapWithPose());	
+						} catch(std::exception const& e) {
+							std::cerr << "Error writing to " << strOutput.get() << ": " << e.what() << std::endl;
+						} catch(...) {
+							std::cerr << "Unknown error writing to " << strOutput.get() << std::endl;
+							std::abort();
+						}
+					}	
+				}
+			}
+		});
 
 		t.detach();
 		io_service.run();
