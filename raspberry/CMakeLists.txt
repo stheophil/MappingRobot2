@@ -45,6 +45,7 @@ add_executable(robot
     scanmatching.h
 	scanmatching.cpp
 	robot_strategy.cpp
+	path_finding.cpp
 	main.cpp
     error_handling.h
 	error_handling.cpp

@@ -12,7 +12,7 @@
 #include <opencv2/imgproc.hpp>
 
 COccupancyGrid::COccupancyGrid()
-:   m_matnMapObstacle(c_nMapExtent, c_nMapExtent, CV_8UC1, cv::Scalar(255))
+:   m_matnMapObstacle(c_nMapExtent, c_nMapExtent, CV_8UC1, cv::Scalar(128))
 {}
 
 COccupancyGrid::COccupancyGrid(COccupancyGrid const& occgrid) 

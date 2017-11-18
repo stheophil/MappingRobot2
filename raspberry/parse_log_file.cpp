@@ -2,15 +2,18 @@
 #include "rover.h"
 #include "robot_configuration.h"
 #include "fast_particle_slam.h"
+#include "path_finding.h"
 
 #include <stdio.h>
 #include <chrono>
 #include <fstream>
 
+#include <boost/range/adaptor/transformed.hpp>
 #include <boost/optional.hpp>
 
 #include <opencv2/imgcodecs/imgcodecs.hpp>     // cv::imread()
 #include <opencv2/opencv.hpp>
+
 
 int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> const& ostrOutput) {
     cv::VideoWriter vid;
@@ -83,7 +86,7 @@ int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> c
 
     if(!bVideo && ostrOutput) {
         try {
-            cv::imwrite(ostrOutput.get(), pfslam.getMap());
+            cv::imwrite(ostrOutput.get() + ".png", pfslam.getMap());
         } catch (cv::Exception& ex) {
             std::cerr << "Exception while writing to " << ostrOutput.get() << ": " << ex.what();
             return 1;
@@ -92,10 +95,32 @@ int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> c
 
     // We are ignoring the rest of the last scan line
     auto const tpEnd = std::chrono::system_clock::now();
-    std::chrono::duration<double> durDiff = tpEnd-tpStart;
+    std::chrono::duration<double> const durDiff = tpEnd-tpStart;
     auto const poseFinal = pfslam.Poses().back();
     std::cout << durDiff.count() << " s\n"
         << " Final pose: ("<< poseFinal.m_pt.x  <<";"<< poseFinal.m_pt.y <<";" << poseFinal.m_fYaw << ")\n";
     
+    std::cout << " Finding path back to (0;0) \n";
+
+    {
+        auto const tpStart = std::chrono::system_clock::now();
+        auto const vecptf = FindPath(pfslam.getMap(), poseFinal.m_pt, rbt::point<double>::zero());
+        auto const tpEnd = std::chrono::system_clock::now();
+    
+        std::chrono::duration<double> const durDiff = tpEnd-tpStart;
+        std::cout << " Path finding took " << durDiff.count() << "s\n";
+    
+        if(ostrOutput) {
+            cv::imwrite(
+                ostrOutput.get() + "_astar.png", 
+                ObstacleMapWithPoses(
+                    pfslam.getMap(), 
+                    boost::copy_range<std::vector<rbt::pose<double>>>(
+                        boost::adaptors::transform(vecptf, [](rbt::point<double> const& ptf) { return rbt::pose<double>(ptf, 0); })
+                    )
+                )
+            );
+        }
+    }
     return 0;
 }

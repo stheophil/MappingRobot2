@@ -7,8 +7,9 @@
 
 // #define ENABLE_SCANMATCH_LOG
 
-#ifdef ENABLE_SCANMATCH_LOG
 #include <opencv2/imgcodecs/imgcodecs.hpp>     // cv::imread()
+
+#ifdef ENABLE_SCANMATCH_LOG
 #include <iostream>
 
 void DebugOutputScan(cv::Mat const& matObstacle, std::vector<rbt::point<double>> const& vecptfTemplate, char const* szFile) {
@@ -143,13 +144,24 @@ void COccupancyGridWithObstacleList::updateGrid(rbt::point<int> const& pt, doubl
     }
 }
 
-
 cv::Mat COccupancyGridWithObstacleList::ObstacleMap() const {
-    cv::Mat mat; 
-    cv::threshold(m_matfMapLogOdds, mat, 0, 255.0, cv::THRESH_BINARY_INV);
+    cv::Mat matnMapLogOdds;
+    m_matfMapLogOdds.convertTo(matnMapLogOdds, CV_8U, /*alpha*/ -1, 128);
+    // p = 1/(1 + exp(fOdds))
+    // So fOdds = 0 means p = 0.5, less means probably free space, higher means probably occupied
+
+    // In matnMapLogOdds, each pixel is -1 * fOdds + 128, so p = 0.5 is color 128, 
+    // less means probably occupied, higher means probably free. 
     
     cv::Mat matn; 
-    mat.convertTo(matn, CV_8U);
+    // Set everything to 0 that is < 127, leave rest as is
+    cv::threshold(matnMapLogOdds, matn, 128-c_fFreeThreshold-1, /*ignored*/ 255, cv::THRESH_TOZERO);
+
+    cv::Mat matnFree; 
+    // Set everything to 255 that is > 129, everything else to 0
+    cv::threshold(matnMapLogOdds, matnFree, 128+c_fFreeThreshold, 255.0, cv::THRESH_BINARY);
+    
+    matnFree.copyTo(matn, /*mask*/ matnFree);
     return matn;
 }
 

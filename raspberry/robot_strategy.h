@@ -1,3 +1,5 @@
+#pragma once
+
 #include "fast_particle_slam.h"
 #include "scanline.h"
 

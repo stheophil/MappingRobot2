@@ -44,4 +44,13 @@ namespace rbt {
     }
     
     double angularDistance( double fAngleA, double fAngleB);
+
+    template<typename T, typename S>
+    bool assign_min(T& lhs, S&& rhs) noexcept {
+        if(rhs<lhs) {
+            lhs = std::forward<S>(rhs);
+            return true;
+        }
+        return false;
+    }
 }
