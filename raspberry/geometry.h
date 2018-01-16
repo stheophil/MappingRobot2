@@ -136,7 +136,9 @@ namespace rbt {
         interval() = default;
         interval(T _begin, T _end) : begin(_begin), end(_end) {}
         
+        static interval<T> empty(); // neutral element for operator|=
         interval<T>& operator|=(T const& t);
+
     };
 
     template<typename T>
@@ -323,6 +325,12 @@ namespace rbt {
         top = std::max(top, pt.y);
         return *this;
     }
+
+    template<typename T>
+    /*static*/ interval<T> interval<T>::empty() {
+        return interval<T>(std::numeric_limits<T>::max(), std::numeric_limits<T>::lowest());
+    }
+
     
     template<typename T>
     interval<T>& interval<T>::operator|=(T const& t) {

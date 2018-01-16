@@ -14,6 +14,7 @@
 // for the particle filter
 
 // Motion model
+double encoderTicksToCm(short nTicks);
 rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SOdometryData const& odom); 
 
 // Occupancy grid

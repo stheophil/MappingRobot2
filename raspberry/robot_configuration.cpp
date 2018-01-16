@@ -25,6 +25,10 @@ namespace {
     }
 }
 
+double encoderTicksToCm(short nTicks) {
+    return encoderTicksToRadians(nTicks) * c_nWheelRadius;
+}
+
 rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SOdometryData const& odom) {
     // differential drive: http://planning.cs.uiuc.edu/node659.html
     // take average of two wheels on each side

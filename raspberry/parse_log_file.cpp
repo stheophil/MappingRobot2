@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <chrono>
 #include <fstream>
+#include  <clocale>
 
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/optional.hpp>
@@ -32,18 +33,51 @@ int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> c
     CFastParticleSlamBase pfslam;
     SScanLine scanline;
     
+    SOdometryData odomPrev = {0};
+    double fSecondsPrev = 0;
+    double fSpeedPrevLeft = 0;
+    double fSpeedPrevRight = 0;
+
+    auto Speed = [&](SOdometryData const& odom, double fSeconds, bool bLeft) { // in m/s
+        auto const nTicks = (bLeft 
+            ? (odom.m_nFrontLeft + odom.m_nBackLeft)
+            : (odom.m_nFrontRight + odom.m_nBackRight)) / 2;
+        return encoderTicksToCm(nTicks) / 100.0 / (fSeconds - fSecondsPrev); 
+    };
+
+    auto Acceleration = [&](SOdometryData const& odom, double fSeconds, bool bLeft) {
+        return (Speed(odom, fSeconds, bLeft) - (bLeft ? fSpeedPrevLeft : fSpeedPrevRight)) / (fSeconds - fSecondsPrev);
+    };
+
+    rbt::interval<double> intvlfAcceleration = rbt::interval<double>::empty();
+    rbt::interval<double> intvlfSpeed = rbt::interval<double>::empty();
+
+    std::setlocale(LC_ALL, "en_US.utf8");
     for( std::string strLine; std::getline( ifs, strLine ); ) {
         if(!strLine.empty()) {
             switch(strLine[0]) {
                 case 'o':
                     SOdometryData odom;
-                    if(4==sscanf(strLine.data(), "o;%*lf;%hd;%hd;%hd;%hd", 
+                    double fSeconds;
+                    if(5==sscanf(strLine.data(), "o;%lf;%hd;%hd;%hd;%hd", 
+                        &fSeconds,
                         &odom.m_nFrontLeft, 
                         &odom.m_nFrontRight,
 						&odom.m_nBackLeft,
 						&odom.m_nBackRight)) 
                     {
                         scanline.add(odom);
+
+                        intvlfAcceleration |= Acceleration(odom, fSeconds, /*bLeft*/ true);
+                        intvlfAcceleration |= Acceleration(odom, fSeconds, /*bLeft*/ false);
+
+                        intvlfSpeed |= Speed(odom, fSeconds, /*bLeft*/ true);
+                        intvlfSpeed |= Speed(odom, fSeconds, /*bLeft*/ false);
+
+                        odomPrev = odom;
+                        fSpeedPrevLeft = Speed(odom, fSeconds, /*bLeft*/ true);
+                        fSpeedPrevRight = Speed(odom, fSeconds, /*bLeft*/ false);
+                        fSecondsPrev = fSeconds;
                     } else {
                         std::cerr << "Invalid odometry data: " << strLine << std::endl;
                     }
@@ -100,6 +134,9 @@ int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> c
     std::cout << durDiff.count() << " s\n"
         << " Final pose: ("<< poseFinal.m_pt.x  <<";"<< poseFinal.m_pt.y <<";" << poseFinal.m_fYaw << ")\n";
     
+    std::cout << " Min/Max Speed = ( " << intvlfSpeed.begin << " m/s, " << intvlfSpeed.end << " m/s)" << std::endl;
+    std::cout << " Min/Max Accel = ( " << intvlfAcceleration.begin << " m/s^2, " << intvlfAcceleration.end << " m/s^2)" << std::endl;
+
     std::cout << " Finding path back to (0;0) \n";
 
     {
