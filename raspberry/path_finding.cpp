@@ -18,11 +18,11 @@ std::vector<rbt::point<double>> FindPath(cv::Mat matn, rbt::point<double> const&
         matnEroded, 
         cv::Mat::ones(nMaxExtent, nMaxExtent, CV_8U)
     );
-
-    // TODO: Include costs of traveling close to an obstacle in calculation
-    // cv::Mat matnGauss;
-    // auto const nMaxExtentOdd = nMaxExtent + 1 - nMaxExtent%2;
-    // cv::GaussianBlur(matnEroded, matnGauss, cv::Size(nMaxExtentOdd, nMaxExtentOdd), 0, 0);
+    
+    // Include costs of traveling close to an obstacle in calculation
+    cv::Mat matnGauss;
+    auto const nMaxExtentOdd = 2*nMaxExtent + 1;
+    cv::GaussianBlur(matnEroded, matnGauss, cv::Size(nMaxExtentOdd, nMaxExtentOdd), 0, 0);
 
     float aanMinimalCost[c_nMapExtent][c_nMapExtent];
     std::fill_n(&aanMinimalCost[0][0], c_nMapExtent*c_nMapExtent, std::numeric_limits<float>::max());
@@ -31,11 +31,12 @@ std::vector<rbt::point<double>> FindPath(cv::Mat matn, rbt::point<double> const&
         return aanMinimalCost[pt.x][pt.y];
     };
 
-    auto ForEachNeighborCoordinate = [](rbt::point<int> const& pt, auto fn) noexcept {
+    auto ForEachNeighborCoordinate = [&](rbt::point<int> const& pt, auto fn) noexcept {
         for(int x = -1; x <= 1; ++x) {
             for(int y = -1; y <= 1; ++y) {
-                if(0!=x || 0!=y) {                    
-                    fn(pt + rbt::size<int>(x, y), 0==x || 0==y ? 1.0f : M_SQRT2);
+                if(0!=x || 0!=y) {
+                    auto const ptNext = pt + rbt::size<int>(x, y);
+                    fn(ptNext, (0==x || 0==y ? 1.0f : M_SQRT2) * (1 + (255 - matnGauss.at<std::uint8_t>(ptNext.y, ptNext.x))/10));
                 }
             }
         }
@@ -49,31 +50,31 @@ std::vector<rbt::point<double>> FindPath(cv::Mat matn, rbt::point<double> const&
         float m_fCost;
     };
 
-    auto LessSqrDistance = [&](node const& lhs, node const& rhs) noexcept {
-        return (lhs.m_pt - ptnEnd).SqrAbs() < (rhs.m_pt - ptnEnd).SqrAbs();
+    auto GreaterDistance = [&](node const& lhs, node const& rhs) noexcept {
+        return (lhs.m_pt - ptnEnd).Abs() + lhs.m_fCost > (rhs.m_pt - ptnEnd).Abs() + rhs.m_fCost;
     };
 
-    std::priority_queue<node, std::vector<node>, decltype(LessSqrDistance)> queue(LessSqrDistance);
+    std::priority_queue<node, std::vector<node>, decltype(GreaterDistance)> queue(GreaterDistance);
     queue.push(node{ptnStart, 0});
-    
+    MinimalNodeCost(ptnStart) = 0;
+
     while(!queue.empty()) {
         auto const nodeTop = queue.top();
         queue.pop();
+        if(MinimalNodeCost(nodeTop.m_pt) < nodeTop.m_fCost) continue;
 
-        if(rbt::assign_min(MinimalNodeCost(nodeTop.m_pt), nodeTop.m_fCost)) {
-            if(nodeTop.m_pt==ptnEnd) break;
+        if(nodeTop.m_pt==ptnEnd) break;
 
-            ForEachNeighborCoordinate(
-                nodeTop.m_pt, 
-                [&](rbt::point<int> const& pt, float fDeltaCost) {
-                    node nodeNeighbor{pt, nodeTop.m_fCost + fDeltaCost};
+        ForEachNeighborCoordinate(
+            nodeTop.m_pt, 
+            [&](rbt::point<int> const& pt, float fDeltaCost) {
+                node nodeNeighbor{pt, nodeTop.m_fCost + fDeltaCost};
 
-                    if(nodeNeighbor.m_fCost < MinimalNodeCost(nodeNeighbor.m_pt)
-                    && 128<matnEroded.at<std::uint8_t>(pt.y, pt.x)) {
-                        queue.push(nodeNeighbor);
-                    }
-                });
-        }
+                if(128<matnEroded.at<std::uint8_t>(pt.y, pt.x)
+                && rbt::assign_min(MinimalNodeCost(nodeNeighbor.m_pt), nodeNeighbor.m_fCost)) {
+                    queue.push(nodeNeighbor);
+                }
+            });
     }
 
     std::vector<rbt::point<double>> vecptfResult;
