@@ -141,7 +141,7 @@ int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> c
 
     {
         auto const tpStart = std::chrono::system_clock::now();
-        auto const vecptf = FindPath(pfslam.getMap(), poseFinal.m_pt, rbt::point<double>::zero());
+        auto const vecptf = FindPath(pfslam.getMap(), poseFinal, rbt::point<double>::zero());
         auto const tpEnd = std::chrono::system_clock::now();
     
         std::chrono::duration<double> const durDiff = tpEnd-tpStart;
