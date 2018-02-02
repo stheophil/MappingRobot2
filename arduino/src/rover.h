@@ -15,6 +15,7 @@ enum ECommand : short {
 // 100 is a good value so the robot does not turn too fast
 // and can be stopped at the right time
 const short c_nMaxFwdSpeed = 200;
+const short c_nMaxSpeed = 500;
 
 struct SRobotCommand {
     ECommand m_ecmd;

@@ -23,17 +23,25 @@ namespace {
         return std::exp(-1 * std::pow(fX, 2) / (2*std::pow(fS, 2)))
             / (std::sqrt(2*M_PI) * fS);
     }
+
+    constexpr double c_fPiDouble = 2*M_PI;
+    double constrainAngle(double x) { // to [-pi, pi)
+        x = std::fmod(x + M_PI, c_fPiDouble);
+        if (x < 0)
+            x += c_fPiDouble;
+        return x - M_PI;
+    }
 }
 
 double encoderTicksToCm(short nTicks) {
     return encoderTicksToRadians(nTicks) * c_nWheelRadius;
 }
 
-rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SOdometryData const& odom) {
+rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, int nTicksLeft, int nTicksRight) {
     // differential drive: http://planning.cs.uiuc.edu/node659.html
     // take average of two wheels on each side
-    auto const fRadLeft = encoderTicksToRadians((odom.m_nFrontLeft + odom.m_nBackLeft)/2);
-    auto const fRadRight = encoderTicksToRadians((odom.m_nFrontRight + odom.m_nBackRight)/2);
+    auto const fRadLeft = encoderTicksToRadians(nTicksLeft);
+    auto const fRadRight = encoderTicksToRadians(nTicksRight);
 
     auto const fT = (fRadRight + fRadLeft)/2;
     auto const fR = fRadRight - fRadLeft;
@@ -48,9 +56,14 @@ rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SOdometryData const&
 
     return rbt::pose<double>(
         pose.m_pt + sz,
-        pose.m_fYaw + fDeltaYaw
+        constrainAngle(pose.m_fYaw + fDeltaYaw)
     );
 } 
+
+rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SOdometryData const& odom) {
+    return UpdatePose(pose, (odom.m_nFrontLeft + odom.m_nBackLeft)/2, (odom.m_nFrontRight + odom.m_nBackRight)/2);
+}
+
 
 rbt::point<int> ToGridCoordinate(rbt::point<double> const& pt) {
     return rbt::point<int>(pt/c_nScale) + rbt::size<int>(c_nMapExtent, c_nMapExtent)/2;

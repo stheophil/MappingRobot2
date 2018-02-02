@@ -15,8 +15,8 @@
 #include <opencv2/imgcodecs/imgcodecs.hpp>     // cv::imread()
 #include <opencv2/opencv.hpp>
 
-
 int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> const& ostrOutput) {
+
     cv::VideoWriter vid;
     
     if(bVideo && ostrOutput) {
@@ -155,6 +155,24 @@ int ParseLogFile(std::ifstream& ifs, bool bVideo, boost::optional<std::string> c
                     boost::copy_range<std::vector<rbt::pose<double>>>(
                         boost::adaptors::transform(vecptf, [](rbt::point<double> const& ptf) { return rbt::pose<double>(ptf, 0); })
                     )
+                )
+            );
+        }
+    }
+    {
+        auto const tpStart = std::chrono::system_clock::now();
+        auto const vecposeConfigSpace = PathConfigurationSpace(matn, poseFinal, rbt::point<double>::zero());
+        auto const tpEnd = std::chrono::system_clock::now();
+    
+        std::chrono::duration<double> const durDiff = tpEnd-tpStart;
+        std::cout << " Path finding in configuration space took " << durDiff.count() << "s\n";
+        
+        if(ostrOutput) {
+            cv::imwrite(
+                ostrOutput.get() + "_cp.png", 
+                ObstacleMapWithPoses(
+                    matn, 
+                    vecposeConfigSpace
                 )
             );
         }

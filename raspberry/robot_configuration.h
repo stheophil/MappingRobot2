@@ -16,6 +16,7 @@
 // Motion model
 double encoderTicksToCm(short nTicks);
 rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, SOdometryData const& odom); 
+rbt::pose<double> UpdatePose(rbt::pose<double> const& pose, int nTicksLeft, int nTicksRight);
 
 // Occupancy grid
 int constexpr c_nScale = 5; // 5cm / px

@@ -40,7 +40,7 @@ void COccupancyGrid::updateGridPoly(std::vector<rbt::point<int>> const& rngpt, d
 }
 
 cv::Mat ObstacleMapWithPoses(cv::Mat const& m, std::vector<rbt::pose<double>> const& vecpose) {
-    rbt::point<int> ptnPrev = ToGridCoordinate(rbt::point<double>(0, 0));
+    rbt::point<int> ptnPrev = ToGridCoordinate(vecpose.front().m_pt);
     boost::for_each(vecpose, [&](rbt::pose<double> const& pose) {
         auto const ptnGrid = ToGridCoordinate(pose.m_pt);
         cv::line(m, ptnPrev, ptnGrid, cv::Scalar(0));
